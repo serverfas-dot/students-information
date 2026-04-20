@@ -34,7 +34,7 @@ body{font-family:'Inter',sans-serif;background:#f8fafc;color:#334155}
 .btn-red{background:#dc2626;color:white}.btn-red:hover{background:#b91c1c}
 .btn-ghost{background:#f1f5f9;color:#475569}.btn-ghost:hover{background:#e2e8f0}
 .btn-sm{padding:.4rem .875rem;font-size:.75rem}
-.btn-icon{padding:.45rem;border-radius:.5rem}
+.btn-icon{padding:.45rem;border-radius:.5rem;border:none;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:all .15s}
 .btn-edit{background:#eef2ff;color:#4f46e5}.btn-edit:hover{background:#c7d2fe}
 .btn-del{background:#fef2f2;color:#dc2626}.btn-del:hover{background:#fee2e2}
 .badge{display:inline-block;padding:.18rem .5rem;border-radius:.375rem;font-size:.62rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em}
@@ -44,6 +44,7 @@ body{font-family:'Inter',sans-serif;background:#f8fafc;color:#334155}
 .badge-emerald{background:#ecfdf5;color:#047857}
 .badge-amber{background:#fffbeb;color:#b45309}
 .badge-red{background:#fef2f2;color:#dc2626}
+.badge-purple{background:#f5f3ff;color:#6d28d9}
 .tbl-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
 table{width:100%;border-collapse:collapse;min-width:480px}
 th{padding:.7rem 1rem;font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;text-align:left;white-space:nowrap}
@@ -91,9 +92,7 @@ tr:hover td{background:#f8fafc}
 @media(max-width:580px){.col2{grid-column:span 1}}
 .search-wrap{position:relative}
 .s-icon{position:absolute;left:.875rem;top:50%;transform:translateY(-50%);color:#94a3b8;pointer-events:none}
-.s-inp{padding-left:2.6rem!important;padding-right:5rem!important}
-.s-btn{position:absolute;right:.45rem;top:50%;transform:translateY(-50%);background:#4f46e5;color:white;border:none;padding:.35rem .8rem;border-radius:.45rem;font-size:.7rem;font-weight:700;cursor:pointer}
-.s-btn:hover{background:#4338ca}
+.s-inp{padding-left:2.6rem!important}
 .profile-card{background:white;border:1px solid #e2e8f0;border-radius:1.75rem;overflow:hidden}
 .detail-box{background:#f8fafc;border:1px solid #f1f5f9;border-radius:.875rem;padding:.75rem 1rem}
 .detail-lbl{font-size:.62rem;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;margin-bottom:.3rem}
@@ -122,7 +121,17 @@ tr:hover td{background:#f8fafc}
 .login-box{padding:2.5rem;border-radius:2rem;max-width:380px;margin:4rem auto}
 .w-full{width:100%}
 .hidden{display:none!important}
-
+/* ── Category cards ── */
+.cat-card{background:white;border:1px solid #e2e8f0;border-radius:1.25rem;overflow:hidden;margin-bottom:.625rem}
+.cat-header{display:flex;align-items:center;gap:.75rem;padding:.875rem 1.125rem;cursor:pointer;transition:background .15s}
+.cat-header:hover{background:#f8fafc}
+.cat-icon{width:2.5rem;height:2.5rem;border-radius:.625rem;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:1rem;flex-shrink:0}
+.cat-body{border-top:1px solid #f1f5f9;padding:1rem 1.125rem;background:#fafbff}
+.teacher-row{display:flex;align-items:center;gap:.625rem;padding:.5rem .75rem;background:white;border-radius:.75rem;border:1px solid #e2e8f0;margin-bottom:.375rem}
+.teacher-inp-row{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.625rem}
+/* ── New category creation modal ── */
+.create-modal{background:white;border-radius:1.75rem;width:100%;max-width:620px;padding:1.75rem;box-shadow:0 24px 48px rgba(0,0,0,.2);margin:auto;max-height:90vh;overflow-y:auto}
+.teacher-entry{display:flex;gap:.5rem;align-items:center;padding:.625rem .875rem;background:#f8fafc;border-radius:.75rem;border:1px solid #e2e8f0;margin-bottom:.4rem}
 </style>
 </head>
 <body>
@@ -133,47 +142,41 @@ const FB_URL = 'https://student-management-syste-b952d-default-rtdb.firebaseio.c
 const GS_KEY = 'AIzaSyBDaPGla2HilWnBJLcd3zA8WbEARv1bc6g';
 const DEFAULT_SHEET = 'https://docs.google.com/spreadsheets/d/1jRiotMJ-zOwxrfYrpaofzXxmgFdQmT_piVYcgLYqKr0/edit?usp=sharing';
 const INIT_YEARS = ['2025','2026','2027','2028'];
-const Gender = {MALE:'Male',FEMALE:'Female',OTHER:'Other'};
 
-// ── Firebase REST helpers (always work) ───────────────────
 const fbDEL  = path => fetch(`${FB_URL}/${path}.json`,{method:'DELETE'});
 const fbPUT  = (path,d) => fetch(`${FB_URL}/${path}.json`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});
 const fbPOST = (path,d) => fetch(`${FB_URL}/${path}.json`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)}).then(r=>r.json()).then(r=>r.name);
-const fbPATCH= (path,d) => fetch(`${FB_URL}/${path}.json`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});
 
-// ── Icons ─────────────────────────────────────────────────
+// ── Icons ────────────────────────────────────────────────
 const Ic = {
-  Search: ({s=18})=><svg width={s} height={s} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>,
-  Plus:   ({s=18})=><svg width={s} height={s} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>,
-  Edit:   ({s=15})=><svg width={s} height={s} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>,
-  Trash:  ({s=15})=><svg width={s} height={s} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>,
-  X:      ({s=18})=><svg width={s} height={s} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg>,
-  Menu:   ({s=20})=><svg width={s} height={s} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16"/></svg>,
-  Sync:   ({s=16,spin=false})=><svg width={s} height={s} fill="none" stroke="currentColor" viewBox="0 0 24 24" className={spin?'spin':''}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>,
-  Shield: ({s=22})=><svg width={s} height={s} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>,
-  Lock:   ({s=22})=><svg width={s} height={s} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>,
-  Key:    ({s=20})=><svg width={s} height={s} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>,
-  Save:   ({s=15})=><svg width={s} height={s} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg>,
-  Upload: ({s=16})=><svg width={s} height={s} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>,
+  Search:  ({s=18})=><svg width={s} height={s} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>,
+  Plus:    ({s=18})=><svg width={s} height={s} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>,
+  Edit:    ({s=15})=><svg width={s} height={s} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>,
+  Trash:   ({s=15})=><svg width={s} height={s} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>,
+  X:       ({s=18})=><svg width={s} height={s} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg>,
+  Menu:    ({s=20})=><svg width={s} height={s} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16"/></svg>,
+  Sync:    ({s=16,spin=false})=><svg width={s} height={s} fill="none" stroke="currentColor" viewBox="0 0 24 24" className={spin?'spin':''}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>,
+  Shield:  ({s=22})=><svg width={s} height={s} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>,
+  Lock:    ({s=22})=><svg width={s} height={s} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>,
+  Key:     ({s=20})=><svg width={s} height={s} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>,
+  Save:    ({s=15})=><svg width={s} height={s} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg>,
+  Upload:  ({s=16})=><svg width={s} height={s} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>,
   Download:({s=16})=><svg width={s} height={s} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>,
-  Users:  ({s=16})=><svg width={s} height={s} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>,
-  Alert:  ({s=22})=><svg width={s} height={s} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.698-.833-2.464 0L4.732 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg>,
+  Users:   ({s=16})=><svg width={s} height={s} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>,
+  Alert:   ({s=22})=><svg width={s} height={s} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.698-.833-2.464 0L4.732 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg>,
   Activity:({s=20})=><svg width={s} height={s} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>,
-  User:   ({s=20})=><svg width={s} height={s} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>,
-  Book:   ({s=16})=><svg width={s} height={s} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>,
-  Club:   ({s=16})=><svg width={s} height={s} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>,
-  Home:   ({s=16})=><svg width={s} height={s} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>,
-  Sheet:  ({s=20})=><svg width={s} height={s} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>,
-  Check:  ({s=15})=><svg width={s} height={s} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"/></svg>,
+  Sheet:   ({s=20})=><svg width={s} height={s} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>,
+  Check:   ({s=15})=><svg width={s} height={s} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"/></svg>,
+  User:    ({s=16})=><svg width={s} height={s} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>,
 };
 
-// ── Toast ─────────────────────────────────────────────────
+// ── Toast ────────────────────────────────────────────────
 const Toast = ({msg,type,onClose}) => {
   React.useEffect(()=>{const t=setTimeout(onClose,5000);return()=>clearTimeout(t)},[]);
   return <div className={`toast toast-${type}`}><div className="toast-dot"/><span style={{wordBreak:'break-word'}}>{msg}</span></div>;
 };
 
-// ── Field helpers ─────────────────────────────────────────
+// ── Fields ───────────────────────────────────────────────
 const Field = ({label,children}) => <div><label className="lbl">{label}</label>{children}</div>;
 const TxtIn = ({label,value,onChange,placeholder,type='text',required}) => (
   <Field label={label}><input className="inp" type={type} value={value||''} onChange={e=>onChange(e.target.value)} placeholder={placeholder} required={required}/></Field>
@@ -183,16 +186,12 @@ const SelIn = ({label,value,onChange,options,required}) => (
     {options.map(o=><option key={typeof o==='string'?o:o.v} value={typeof o==='string'?o:o.v}>{typeof o==='string'?o:o.l}</option>)}
   </select></Field>
 );
-
-// ── SearchBar ─────────────────────────────────────────────
 const SearchBar = ({value,onChange,placeholder='Search...'}) => (
   <div className="search-wrap">
     <div className="s-icon"><Ic.Search s={16}/></div>
     <input className="inp s-inp" value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder}/>
   </div>
 );
-
-// ── Confirm Delete Modal ──────────────────────────────────
 const ConfirmDel = ({title,msg,onConfirm,onCancel}) => (
   <div className="modal-bg">
     <div className="modal-box modal-sm" style={{textAlign:'center'}}>
@@ -207,7 +206,6 @@ const ConfirmDel = ({title,msg,onConfirm,onCancel}) => (
   </div>
 );
 
-// ── Stat Strip ────────────────────────────────────────────
 const StatStrip = ({total,boys,girls,year}) => (
   <div className="stat-strip">
     {[['Total Students',total,'sst-i'],['Boys Enrolled',boys,'sst-b'],['Girls Enrolled',girls,'sst-r'],['Academic Year',year,'sst-e']].map(([l,v,c])=>(
@@ -219,8 +217,225 @@ const StatStrip = ({total,boys,girls,year}) => (
   </div>
 );
 
-// ── Public Dashboard ──────────────────────────────────────
-const PublicView = ({students,grades,clubs,houses,years,selYear,setSelYear,customStats}) => {
+// ── Category Create/Edit Modal (with multi-teacher) ──────
+const CatModal = ({type,item,fbNode,onClose,showToast}) => {
+  // item = existing item to edit, null = create new
+  const isEdit = !!item;
+  const label  = type==='classes'?'Class':type==='clubs'?'Club':'House';
+  const accent = type==='classes'?'#059669':type==='clubs'?'#7c3aed':'#dc2626';
+  const lightBg= type==='classes'?'#ecfdf5':type==='clubs'?'#f5f3ff':'#fef2f2';
+  const lightBd= type==='classes'?'#a7f3d0':type==='clubs'?'#ddd6fe':'#fecaca';
+
+  const [name,   setName]   = React.useState(item?.name||'');
+  const [teachers,setTeach] = React.useState(
+    item?.teachers ? Object.entries(item.teachers).map(([k,v])=>({key:k,name:v.name||'',role:v.role||'Teacher'})) : []
+  );
+  const [tName,  setTN]     = React.useState('');
+  const [tRole,  setTR]     = React.useState('');
+  const [saving, setSaving] = React.useState(false);
+
+  const addTeacherToList = () => {
+    if(!tName.trim()) return;
+    setTeach(p=>[...p,{key:'new_'+Date.now(),name:tName.trim(),role:tRole.trim()||'Teacher'}]);
+    setTN(''); setTR('');
+  };
+  const removeFromList = key => setTeach(p=>p.filter(t=>t.key!==key));
+
+  const save = async e => {
+    e.preventDefault();
+    if(!name.trim()) return;
+    setSaving(true);
+    try {
+      if(isEdit) {
+        // Update name
+        await fbPUT(`${fbNode}/${item.id}/name`, name.trim());
+        // Re-save all teachers: delete old, add all current
+        await fbDEL(`${fbNode}/${item.id}/teachers`);
+        for(const t of teachers) {
+          await fbPOST(`${fbNode}/${item.id}/teachers`,{name:t.name,role:t.role});
+        }
+        showToast(`${label} updated`,'success');
+      } else {
+        // Create new
+        const id = await fbPOST(fbNode, {name:name.trim()});
+        for(const t of teachers) {
+          await fbPOST(`${fbNode}/${id}/teachers`,{name:t.name,role:t.role});
+        }
+        showToast(`${label} created`,'success');
+      }
+      onClose();
+    } catch(e){ showToast('Save failed','error'); }
+    setSaving(false);
+  };
+
+  return <div className="modal-bg">
+    <div className="create-modal">
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'1.25rem'}}>
+        <div>
+          <h3 style={{fontSize:'1.2rem',fontWeight:900,color:'#0f172a'}}>{isEdit?'Edit':'Create'} {label}</h3>
+          <p style={{fontSize:'.72rem',color:'#94a3b8',marginTop:'.15rem'}}>Add name and assign as many teachers as needed</p>
+        </div>
+        <button className="btn-icon btn-ghost" onClick={onClose}><Ic.X/></button>
+      </div>
+      <form onSubmit={save}>
+        {/* Name field */}
+        <div style={{marginBottom:'1.25rem'}}>
+          <label className="lbl">{label} Name</label>
+          <input className="inp" value={name} onChange={e=>setName(e.target.value)}
+            placeholder={`e.g. ${type==='classes'?'Grade 7A':type==='clubs'?'Science Club':'Blue House'}…`} required/>
+        </div>
+
+        {/* Teachers section */}
+        <div style={{marginBottom:'1rem'}}>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'.625rem'}}>
+            <label className="lbl" style={{margin:0}}>Teachers Assigned</label>
+            <span style={{fontSize:'.65rem',fontWeight:700,color:'#94a3b8'}}>{teachers.length} teacher{teachers.length!==1?'s':''}</span>
+          </div>
+
+          {/* Existing teachers in list */}
+          {teachers.length>0 && <div style={{marginBottom:'.75rem'}}>
+            {teachers.map(t=>(
+              <div key={t.key} className="teacher-entry">
+                <div style={{width:'1.75rem',height:'1.75rem',background:lightBg,border:`1px solid ${lightBd}`,borderRadius:'.375rem',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                  <Ic.User s={12}/>
+                </div>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontWeight:800,fontSize:'.82rem',color:'#0f172a'}}>{t.name}</div>
+                  <div style={{fontSize:'.62rem',fontWeight:700,color:accent}}>{t.role}</div>
+                </div>
+                <button type="button" className="btn-icon btn-del" onClick={()=>removeFromList(t.key)}
+                  style={{width:'1.6rem',height:'1.6rem'}}><Ic.X s={12}/></button>
+              </div>
+            ))}
+          </div>}
+
+          {/* Add teacher inputs */}
+          <div style={{background:'#f8fafc',border:'1.5px dashed #e2e8f0',borderRadius:'.875rem',padding:'.875rem'}}>
+            <div style={{fontSize:'.65rem',fontWeight:800,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'.08em',marginBottom:'.5rem'}}>Add Teacher</div>
+            <div style={{display:'flex',gap:'.5rem',flexWrap:'wrap'}}>
+              <input className="inp" value={tName} onChange={e=>setTN(e.target.value)}
+                placeholder="Teacher full name…"
+                onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();addTeacherToList();}}}
+                style={{flex:2,minWidth:'140px'}}/>
+              <input className="inp" value={tRole} onChange={e=>setTR(e.target.value)}
+                placeholder="Role (e.g. Head Teacher)…"
+                onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();addTeacherToList();}}}
+                style={{flex:2,minWidth:'140px'}}/>
+              <button type="button" className="btn btn-emerald"
+                onClick={addTeacherToList} disabled={!tName.trim()}
+                style={{height:'46px',whiteSpace:'nowrap',opacity:tName.trim()?1:.5}}>
+                <Ic.Plus s={14}/>Add
+              </button>
+            </div>
+            <div style={{fontSize:'.62rem',color:'#94a3b8',marginTop:'.375rem'}}>Press Enter or click Add — you can add as many teachers as needed</div>
+          </div>
+        </div>
+
+        <div style={{display:'flex',gap:'.625rem',marginTop:'1.25rem'}}>
+          <button type="button" className="btn btn-ghost w-full" style={{justifyContent:'center',padding:'.8rem'}} onClick={onClose}>Cancel</button>
+          <button type="submit" className="btn w-full" disabled={saving||!name.trim()}
+            style={{justifyContent:'center',padding:'.8rem',background:accent,color:'white',opacity:(!name.trim()||saving)?0.6:1}}>
+            {saving?<><Ic.Sync s={14} spin/>{isEdit?'Saving…':'Creating…'}</>:<><Ic.Check s={14}/>{isEdit?'Save Changes':'Create '+label}</>}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>;
+};
+
+// ── Category Card (expandable, show teachers) ────────────
+const CatCard = ({item,type,fbNode,onDelete,showToast}) => {
+  const [open,   setOpen]   = React.useState(false);
+  const [editing,setEditing]= React.useState(false);
+  const [addingT,setAddingT]= React.useState(false);
+  const [tName,  setTN]     = React.useState('');
+  const [tRole,  setTR]     = React.useState('');
+  const [saving, setSaving] = React.useState(false);
+
+  const accent  = type==='classes'?'#059669':type==='clubs'?'#7c3aed':'#dc2626';
+  const lightBg = type==='classes'?'#ecfdf5':type==='clubs'?'#f5f3ff':'#fef2f2';
+  const lightBd = type==='classes'?'#a7f3d0':type==='clubs'?'#ddd6fe':'#fecaca';
+  const teachers = item.teachers ? Object.entries(item.teachers) : [];
+
+  const addTeacher = async () => {
+    if(!tName.trim()) return;
+    setSaving(true);
+    await fbPOST(`${fbNode}/${item.id}/teachers`,{name:tName.trim(),role:tRole.trim()||'Teacher'});
+    setTN(''); setTR(''); setAddingT(false);
+    showToast('Teacher added','success');
+    setSaving(false);
+  };
+  const removeTeacher = async tk => {
+    await fbDEL(`${fbNode}/${item.id}/teachers/${tk}`);
+    showToast('Teacher removed','success');
+  };
+
+  return <>
+    {editing && <CatModal type={type} item={item} fbNode={fbNode} onClose={()=>setEditing(false)} showToast={showToast}/>}
+    <div className="cat-card">
+      {/* Header */}
+      <div className="cat-header" onClick={()=>setOpen(!open)}>
+        <div className="cat-icon" style={{background:lightBg,border:`1px solid ${lightBd}`,color:accent}}>
+          {item.name.charAt(0).toUpperCase()}
+        </div>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{fontWeight:900,color:'#0f172a',fontSize:'.9rem'}}>{item.name}</div>
+          <div style={{fontSize:'.62rem',fontWeight:700,color:'#94a3b8',marginTop:'.1rem'}}>
+            <span style={{color:accent,fontWeight:800}}>{teachers.length}</span> teacher{teachers.length!==1?'s':''} · {open?'▲ click to collapse':'▼ click to expand'}
+          </div>
+        </div>
+        <div style={{display:'flex',gap:'.3rem'}} onClick={e=>e.stopPropagation()}>
+          <button className="btn-icon btn-edit" title="Edit" onClick={()=>setEditing(true)}><Ic.Edit/></button>
+          <button className="btn-icon btn-del" title="Delete" onClick={onDelete}><Ic.Trash/></button>
+        </div>
+      </div>
+
+      {/* Expanded body */}
+      {open && <div className="cat-body">
+        {/* Teachers list */}
+        {teachers.length===0
+          ? <div style={{textAlign:'center',padding:'.875rem',color:'#cbd5e1',fontWeight:800,fontSize:'.68rem',textTransform:'uppercase',letterSpacing:'.08em'}}>No teachers assigned yet</div>
+          : teachers.map(([tk,tv])=>(
+              <div key={tk} className="teacher-row">
+                <div style={{width:'1.875rem',height:'1.875rem',background:lightBg,border:`1px solid ${lightBd}`,borderRadius:'.4rem',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                  <Ic.User s={13}/>
+                </div>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontWeight:800,color:'#0f172a',fontSize:'.82rem'}}>{tv.name}</div>
+                  <div style={{fontSize:'.62rem',fontWeight:700,color:accent}}>{tv.role||'Teacher'}</div>
+                </div>
+                <button className="btn-icon btn-del" style={{width:'1.6rem',height:'1.6rem'}} onClick={()=>removeTeacher(tk)}><Ic.X s={11}/></button>
+              </div>
+            ))
+        }
+
+        {/* Add teacher inline */}
+        {addingT
+          ? <div style={{marginTop:'.625rem',background:'white',border:'1px solid #e2e8f0',borderRadius:'.875rem',padding:'.875rem'}}>
+              <div style={{fontSize:'.65rem',fontWeight:800,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'.08em',marginBottom:'.5rem'}}>Add Teacher</div>
+              <div style={{display:'flex',gap:'.4rem',flexWrap:'wrap',marginBottom:'.4rem'}}>
+                <input className="inp" value={tName} onChange={e=>setTN(e.target.value)} placeholder="Teacher name…" style={{flex:2,minWidth:'130px'}}/>
+                <input className="inp" value={tRole} onChange={e=>setTR(e.target.value)} placeholder="Role (e.g. Head Teacher)…" style={{flex:2,minWidth:'130px'}}/>
+              </div>
+              <div style={{display:'flex',gap:'.4rem'}}>
+                <button className="btn btn-emerald btn-sm" onClick={addTeacher} disabled={!tName.trim()||saving}>
+                  {saving?<Ic.Sync s={12} spin/>:<Ic.Check s={12}/>}{saving?'Adding…':'Add Teacher'}
+                </button>
+                <button className="btn btn-ghost btn-sm" onClick={()=>{setAddingT(false);setTN('');setTR('');}}>Cancel</button>
+              </div>
+            </div>
+          : <button onClick={()=>setAddingT(true)}
+              style={{marginTop:'.625rem',width:'100%',padding:'.55rem',background:lightBg,border:`1.5px dashed ${lightBd}`,borderRadius:'.75rem',color:accent,fontWeight:800,fontSize:'.72rem',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:'.3rem'}}>
+              <Ic.Plus s={13}/>Add Teacher
+            </button>
+        }
+      </div>}
+    </div>
+  </>;
+};
+
+// ── Public View ──────────────────────────────────────────
+const PublicView = ({students,grades,clubs,houses,years,selYear,setSelYear}) => {
   const [tab,setTab]       = React.useState('students');
   const [filter,setFilter] = React.useState('');
   const [search,setSearch] = React.useState('');
@@ -228,7 +443,6 @@ const PublicView = ({students,grades,clubs,houses,years,selYear,setSelYear,custo
 
   const byYear = React.useMemo(()=>students.filter(s=>String(s.academicYear)===String(selYear)),[students,selYear]);
   const live   = {total:byYear.length,boys:byYear.filter(s=>s.gender==='Male').length,girls:byYear.filter(s=>s.gender==='Female').length};
-  const stats  = customStats||live;
 
   const group = (tab!=='students'&&filter)
     ? (tab==='classes'?grades:tab==='clubs'?clubs:houses).find(x=>x.name===filter) : null;
@@ -248,21 +462,25 @@ const PublicView = ({students,grades,clubs,houses,years,selYear,setSelYear,custo
   const gs={total:results.length,boys:results.filter(s=>s.gender==='Male').length,girls:results.filter(s=>s.gender==='Female').length};
   const tabs=[{id:'students',l:'Students'},{id:'classes',l:'Classes'},{id:'clubs',l:'Clubs'},{id:'houses',l:'Houses'}];
 
+  const getTeacherDisplay = g => {
+    if(!g) return 'No teacher assigned';
+    const teachers = g.teachers ? Object.values(g.teachers) : [];
+    if(teachers.length===0) return g.teacher||'No teacher assigned';
+    return teachers.map(t=>t.name).join(', ');
+  };
+
   return <div style={{paddingBottom:'4rem'}}>
     <div className="card-xl" style={{padding:'1.25rem 1.5rem',marginBottom:'1rem'}}>
       <h2 style={{fontSize:'1.4rem',fontWeight:900,color:'#0f172a',letterSpacing:'-.02em',marginBottom:'.2rem'}}>Student Information Portal</h2>
       <p style={{fontSize:'.78rem',color:'#94a3b8'}}>Access academic records, class lists and institutional rosters</p>
     </div>
-
-    <StatStrip total={stats.total} boys={stats.boys} girls={stats.girls} year={selYear}/>
-
+    <StatStrip total={live.total} boys={live.boys} girls={live.girls} year={selYear}/>
     {years.length>1&&<div className="card" style={{padding:'.875rem 1.125rem',marginBottom:'1rem',display:'flex',alignItems:'center',gap:'.75rem',flexWrap:'wrap'}}>
       <span style={{fontSize:'.62rem',fontWeight:800,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'.09em',whiteSpace:'nowrap'}}>Year</span>
       <div style={{display:'flex',gap:'.35rem',flexWrap:'wrap'}}>
         {years.map(y=><button key={y} className={`ypill${selYear===y?' active':''}`} onClick={()=>{setSelYear(y);setQuery('');setSearch('');setFilter('');}}>{y}</button>)}
       </div>
     </div>}
-
     <div className="card-xl" style={{padding:'1.125rem 1.25rem',marginBottom:'1rem'}}>
       <div className="tab-bar" style={{marginBottom:'.875rem'}}>
         {tabs.map(t=><button key={t.id} className={`tab-btn${tab===t.id?(t.id==='students'?' tab-indigo':' tab-emerald'):''}`}
@@ -280,10 +498,9 @@ const PublicView = ({students,grades,clubs,houses,years,selYear,setSelYear,custo
         </select>}
       </div>
     </div>
-
     {group&&filter&&<div style={{background:'#059669',borderRadius:'1.25rem',padding:'1rem 1.25rem',marginBottom:'1rem',color:'white'}}>
-      <div style={{fontSize:'.62rem',fontWeight:800,textTransform:'uppercase',letterSpacing:'.1em',color:'rgba(255,255,255,.6)',marginBottom:'.25rem'}}>Teacher In-Charge</div>
-      <div style={{fontSize:'1.1rem',fontWeight:900,marginBottom:'.75rem'}}>{group.teacher||'No teacher assigned'}</div>
+      <div style={{fontSize:'.62rem',fontWeight:800,textTransform:'uppercase',letterSpacing:'.1em',color:'rgba(255,255,255,.6)',marginBottom:'.25rem'}}>Teachers In-Charge</div>
+      <div style={{fontSize:'1rem',fontWeight:800,marginBottom:'.75rem'}}>{getTeacherDisplay(group)}</div>
       <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'.625rem'}}>
         {[['Total',gs.total],['Boys',gs.boys],['Girls',gs.girls]].map(([l,v])=>(
           <div key={l} style={{background:'rgba(255,255,255,.12)',borderRadius:'.75rem',padding:'.75rem',textAlign:'center'}}>
@@ -293,7 +510,6 @@ const PublicView = ({students,grades,clubs,houses,years,selYear,setSelYear,custo
         ))}
       </div>
     </div>}
-
     {tab==='students'&&query ? (
       results.length>0 ? results.map(s=><ProfileCard key={s.id} s={s}/>) : <EmptyMsg msg="No matching student records found"/>
     ) : tab!=='students'&&filter ? (
@@ -348,62 +564,371 @@ const EmptyMsg = ({msg}) => (
   </div></div>
 );
 
-// ── Sheets Sync Panel ─────────────────────────────────────
-const SheetsSync = ({students,isSyncing,lastSync,syncResult,onSync}) => {
-  const [url,setUrl]           = React.useState(()=>localStorage.getItem('fas_gs_url')||DEFAULT_SHEET);
-  const [testMsg,setTM]        = React.useState('');
-  const [testing,setTesting]   = React.useState('');
-  const [wbUrl,setWbUrl]       = React.useState(()=>localStorage.getItem('fas_wb_url')||'');
-  const [exporting,setExp]     = React.useState(false);
-  const [expPct,setExpPct]     = React.useState(0);
-  const [expMsg,setExpMsg]     = React.useState('');
+
+// ── CSV Upload & Restore ─────────────────────────────────
+const CsvUpload = ({years,grades,clubs,houses,onImport,showToast}) => {
+  const [dragging,setDrag]  = React.useState(false);
+  const [preview, setPrev]  = React.useState(null); // {year, rows, mapped}
+  const [selYear, setSelY]  = React.useState('');
+  const [saving,  setSaving]= React.useState(false);
+  const [progress,setProg]  = React.useState(0);
+  const fileRef = React.useRef();
+
+  const CSV_FIELDS = [
+    {key:'indexNo',    label:'Index Number', required:true},
+    {key:'name',       label:'Full Name',    required:true},
+    {key:'idNo',       label:'National ID'},
+    {key:'dob',        label:'Date of Birth'},
+    {key:'gender',     label:'Gender'},
+    {key:'grade',      label:'Grade / Class'},
+    {key:'club',       label:'Club'},
+    {key:'house',      label:'House'},
+    {key:'email',      label:'Email'},
+    {key:'phone',      label:'Phone'},
+    {key:'parentName', label:'Parent / Guardian'},
+    {key:'address',    label:'Address'},
+    {key:'academicYear',label:'Academic Year'},
+    {key:'photoUrl',   label:'Photo URL'},
+  ];
+
+  // Parse CSV text
+  const parseCSV = text => {
+    const lines = text.split(/\r?\n/).filter(l=>l.trim());
+    if(lines.length < 2) return null;
+    // Detect delimiter
+    const delim = lines[0].includes('\t') ? '\t' : ',';
+    const parseRow = row => {
+      const r=[]; let cur='', inQ=false;
+      for(let i=0;i<row.length;i++){
+        const c=row[i];
+        if(c==='"'){inQ=!inQ;}
+        else if(c===delim&&!inQ){r.push(cur.trim());cur='';}
+        else cur+=c;
+      }
+      r.push(cur.trim());
+      return r;
+    };
+    const headers = parseRow(lines[0]).map(h=>h.toLowerCase().replace(/[^a-z0-9]/g,' ').trim());
+    const rows = [];
+    for(let i=1;i<lines.length;i++){
+      const vals = parseRow(lines[i]);
+      if(vals.every(v=>!v.trim())) continue;
+      const obj={};
+      headers.forEach((h,j)=>{obj[h]=vals[j]||'';});
+      rows.push(obj);
+    }
+    return {headers, rows};
+  };
+
+  // Map CSV headers to student fields
+  const HMAP2 = {
+    'name':'name','full name':'name','student name':'name','fullname':'name',
+    'index':'indexNo','index no':'indexNo','indexno':'indexNo','index number':'indexNo','student id':'indexNo','idx':'indexNo',
+    'id':'idNo','id no':'idNo','idno':'idNo','nic':'idNo','national id':'idNo','reg no':'idNo','registration':'idNo',
+    'dob':'dob','date of birth':'dob','birthdate':'dob','birth date':'dob','birthday':'dob',
+    'gender':'gender','sex':'gender',
+    'grade':'grade','class':'grade','level':'grade','form':'grade','classroom':'grade','grade class':'grade',
+    'club':'club','society':'club','activity':'club',
+    'house':'house','team':'house','dormitory':'house',
+    'email':'email','email address':'email','e mail':'email',
+    'phone':'phone','mobile':'phone','contact':'phone','phone number':'phone','tel':'phone',
+    'parent':'parentName','guardian':'parentName','parent name':'parentName','parent guardian':'parentName',
+    'address':'address','permanent address':'address','home address':'address',
+    'academic year':'academicYear','academicyear':'academicYear','year':'academicYear','intake':'academicYear','batch':'academicYear',
+    'photo':'photoUrl','photo url':'photoUrl','image':'photoUrl','picture':'photoUrl',
+  };
+
+  const mapRow = (row, fallbackYear) => {
+    const s={name:'',indexNo:'',idNo:'',dob:'',gender:'Male',grade:'',club:'',house:'',email:'',phone:'',parentName:'',address:'',academicYear:fallbackYear,photoUrl:''};
+    Object.entries(row).forEach(([h,v])=>{
+      const val = String(v||'').trim();
+      if(!val) return;
+      // Exact match first
+      if(HMAP2[h]){ s[HMAP2[h]]=val; return; }
+      // Partial match
+      for(const [key,field] of Object.entries(HMAP2)){
+        if(h.includes(key)||key.includes(h)){s[field]=val;break;}
+      }
+    });
+    const g=(s.gender||'').toLowerCase();
+    if(g==='m'||g==='1'||g.startsWith('m')) s.gender='Male';
+    else if(g==='f'||g==='2'||g.startsWith('f')) s.gender='Female';
+    else if(!g) s.gender='Male';
+    if(!s.academicYear) s.academicYear=fallbackYear;
+    if(!s.photoUrl&&s.name) s.photoUrl=`https://ui-avatars.com/api/?name=${encodeURIComponent(s.name)}&background=random&size=256`;
+    return s;
+  };
+
+  const handleFile = file => {
+    if(!file) return;
+    const ext = file.name.split('.').pop().toLowerCase();
+    if(!['csv','txt'].includes(ext)){ showToast('Please upload a CSV file','error'); return; }
+    const reader = new FileReader();
+    reader.onload = e => {
+      const parsed = parseCSV(e.target.result);
+      if(!parsed||parsed.rows.length===0){ showToast('CSV is empty or invalid','error'); return; }
+      const year = selYear||years[0]||'2025';
+      const mapped = parsed.rows.map(r=>mapRow(r,year)).filter(s=>s.name&&s.indexNo);
+      setPrev({headers:parsed.headers, rows:mapped, total:parsed.rows.length, valid:mapped.length, year});
+    };
+    reader.readAsText(file);
+  };
+
+  const [dupConf,  setDupConf]  = React.useState(null); // {dupes, newRows, allRows, year}
+
+  const doImport = async () => {
+    if(!preview||!preview.rows.length) return;
+    // Check for duplicates against existing Firebase students
+    setSaving(true);
+    try {
+      const r = await fetch(`${FB_URL}/students.json`);
+      const existing = r.ok ? await r.json() : {};
+      const byIdx = {};
+      if(existing) Object.values(existing).forEach(s=>{ if(s&&s.indexNo) byIdx[s.indexNo]=s; });
+      const dupes   = preview.rows.filter(s=>byIdx[s.indexNo]);
+      const newRows = preview.rows.filter(s=>!byIdx[s.indexNo]);
+      if(dupes.length>0) {
+        // Show confirmation dialog
+        setSaving(false);
+        setDupConf({dupes, newRows, allRows:preview.rows, year:preview.year});
+        return;
+      }
+      // No dupes — import directly
+      await onImport(preview.rows, preview.year, p=>setProg(p));
+      showToast(`✓ ${preview.rows.length} students imported for ${preview.year}`,'success');
+      setPrev(null); setSelY('');
+    }catch(e){showToast('Import failed: '+e.message,'error');}
+    setSaving(false); setProg(0);
+  };
+
+  const confirmImport = async (mode) => {
+    // mode: 'update' = import all (update dupes), 'skip' = only new, 'cancel' = do nothing
+    const {dupes,newRows,allRows,year} = dupConf;
+    setDupConf(null);
+    if(mode==='cancel') return;
+    setSaving(true); setProg(0);
+    const rows = mode==='skip' ? newRows : allRows;
+    try {
+      await onImport(rows, year, p=>setProg(p));
+      if(mode==='skip')
+        showToast(`✓ ${newRows.length} new students imported, ${dupes.length} duplicates skipped`,'success');
+      else
+        showToast(`✓ ${allRows.length} students imported (${dupes.length} updated, ${newRows.length} new)`,'success');
+      setPrev(null); setSelY('');
+    }catch(e){showToast('Import failed: '+e.message,'error');}
+    setSaving(false); setProg(0);
+  };
+
+  // Download template CSV
+  const downloadTemplate = () => {
+    const headers = CSV_FIELDS.map(f=>f.label).join(',');
+    const sample  = 'STD/25/001,Ahmed Ali,A123456,2010-05-15,Male,Grade 7,Science Club,Blue House,ahmed@school.edu,+960 777 1234,Ahmed Senior,Male Atoll,2025,';
+    const blob = new Blob([headers+'\n'+sample],{type:'text/csv'});
+    const u=URL.createObjectURL(blob);const a=document.createElement('a');
+    a.href=u;a.download='student_template.csv';a.click();URL.revokeObjectURL(u);
+    showToast('Template downloaded','success');
+  };
+
+  return <div style={{marginTop:'1rem',paddingTop:'1rem',borderTop:'1px solid #a7f3d0'}}>
+
+    {/* Duplicate confirmation dialog */}
+    {dupConf&&<div className="modal-bg">
+      <div className="modal-box modal-sm">
+        <div style={{textAlign:'center',marginBottom:'1.25rem'}}>
+          <div style={{width:'3.25rem',height:'3.25rem',background:'#fffbeb',borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto .75rem',fontSize:'1.4rem'}}>⚠️</div>
+          <h3 style={{fontSize:'1.1rem',fontWeight:900,color:'#0f172a',marginBottom:'.4rem'}}>Duplicate Students Found</h3>
+          <p style={{color:'#64748b',fontSize:'.85rem'}}>
+            <strong style={{color:'#dc2626'}}>{dupConf.dupes.length} student{dupConf.dupes.length!==1?'s':''}</strong> already exist in Firebase with the same Index Number.
+          </p>
+        </div>
+        {/* Show duplicate list */}
+        <div style={{background:'#fef2f2',border:'1px solid #fecaca',borderRadius:'.875rem',padding:'.75rem',marginBottom:'1rem',maxHeight:'160px',overflowY:'auto'}}>
+          <div style={{fontSize:'.65rem',fontWeight:800,color:'#dc2626',textTransform:'uppercase',letterSpacing:'.08em',marginBottom:'.4rem'}}>Existing records that will be affected:</div>
+          {dupConf.dupes.map((s,i)=><div key={i} style={{display:'flex',alignItems:'center',gap:'.5rem',padding:'.3rem 0',borderBottom:'1px solid #fee2e2'}}>
+            <span style={{fontFamily:'monospace',fontWeight:700,color:'#4f46e5',fontSize:'.75rem'}}>{s.indexNo}</span>
+            <span style={{fontWeight:700,color:'#0f172a',fontSize:'.78rem'}}>{s.name}</span>
+            <span className={`badge ${s.gender==='Male'?'badge-blue':'badge-pink'}`}>{s.gender}</span>
+          </div>)}
+        </div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'.5rem',marginBottom:'.5rem'}}>
+          <button onClick={()=>confirmImport('update')}
+            style={{padding:'.75rem',background:'linear-gradient(135deg,#f59e0b,#d97706)',color:'white',border:'none',borderRadius:'.75rem',fontWeight:800,fontSize:'.72rem',cursor:'pointer',textTransform:'uppercase',letterSpacing:'.05em'}}>
+            ✏️ Update Duplicates<br/><span style={{fontWeight:600,fontSize:'.65rem',opacity:.85}}>Import all {dupConf.allRows.length} students</span>
+          </button>
+          <button onClick={()=>confirmImport('skip')}
+            style={{padding:'.75rem',background:'linear-gradient(135deg,#059669,#047857)',color:'white',border:'none',borderRadius:'.75rem',fontWeight:800,fontSize:'.72rem',cursor:'pointer',textTransform:'uppercase',letterSpacing:'.05em'}}>
+            ⏭ Skip Duplicates<br/><span style={{fontWeight:600,fontSize:'.65rem',opacity:.85}}>Import {dupConf.newRows.length} new only</span>
+          </button>
+        </div>
+        <button onClick={()=>setDupConf(null)}
+          style={{width:'100%',padding:'.7rem',background:'#f1f5f9',color:'#475569',border:'none',borderRadius:'.75rem',fontWeight:800,fontSize:'.72rem',cursor:'pointer',textTransform:'uppercase',letterSpacing:'.05em'}}>
+          ✕ Cancel — Don't Import
+        </button>
+      </div>
+    </div>}
+
+    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'.75rem',flexWrap:'wrap',gap:'.5rem'}}>
+      <div>
+        <div style={{fontWeight:900,color:'#0f172a',fontSize:'.875rem'}}>📂 CSV Upload & Restore</div>
+        <div style={{fontSize:'.65rem',color:'#64748b'}}>Upload CSV to import students — separate by academic year</div>
+      </div>
+      <button onClick={downloadTemplate} style={{background:'#eff6ff',color:'#1d4ed8',border:'1px solid #bfdbfe',borderRadius:'.625rem',padding:'.4rem .875rem',fontWeight:800,fontSize:'.72rem',cursor:'pointer',display:'flex',alignItems:'center',gap:'.3rem'}}>
+        <Ic.Download s={12}/>Template
+      </button>
+    </div>
+
+    {/* Academic Year selector */}
+    <div style={{marginBottom:'.625rem'}}>
+      <label className="lbl">Academic Year for this upload</label>
+      <select className="inp" value={selYear} onChange={e=>{setSelY(e.target.value);setPrev(null);}} style={{cursor:'pointer'}}>
+        <option value="">Select year…</option>
+        {years.map(y=><option key={y} value={y}>{y}</option>)}
+      </select>
+    </div>
+
+    {/* Drop zone */}
+    {selYear && <div
+      onDragOver={e=>{e.preventDefault();setDrag(true);}}
+      onDragLeave={()=>setDrag(false)}
+      onDrop={e=>{e.preventDefault();setDrag(false);handleFile(e.dataTransfer.files[0]);}}
+      onClick={()=>fileRef.current?.click()}
+      style={{border:`2px dashed ${dragging?'#4f46e5':'#a7f3d0'}`,borderRadius:'1rem',padding:'1.5rem',textAlign:'center',cursor:'pointer',background:dragging?'#eef2ff':'#f0fdf4',transition:'all .2s',marginBottom:'.625rem'}}>
+      <div style={{fontSize:'1.5rem',marginBottom:'.375rem'}}>📊</div>
+      <div style={{fontWeight:800,color:'#047857',fontSize:'.82rem'}}>Drop CSV here or click to browse</div>
+      <div style={{fontSize:'.68rem',color:'#64748b',marginTop:'.2rem'}}>Will import as <strong>{selYear}</strong> students</div>
+      <input ref={fileRef} type="file" accept=".csv,.txt" className="hidden" onChange={e=>handleFile(e.target.files?.[0])}/>
+    </div>}
+
+    {/* Preview */}
+    {preview && <div style={{background:'white',border:'1px solid #e2e8f0',borderRadius:'1rem',padding:'1rem',marginBottom:'.625rem'}}>
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'.75rem',flexWrap:'wrap',gap:'.5rem'}}>
+        <div>
+          <div style={{fontWeight:900,color:'#0f172a',fontSize:'.875rem'}}>Preview — {preview.year}</div>
+          <div style={{fontSize:'.68rem',color:'#64748b'}}>{preview.valid} valid students ({preview.total} rows in file)</div>
+        </div>
+        <button onClick={()=>setPrev(null)} style={{background:'#fef2f2',color:'#dc2626',border:'none',borderRadius:'.5rem',padding:'.3rem .625rem',fontWeight:800,fontSize:'.72rem',cursor:'pointer'}}>Clear</button>
+      </div>
+      {/* Sample rows */}
+      <div style={{overflowX:'auto',marginBottom:'.75rem'}}>
+        <table style={{width:'100%',borderCollapse:'collapse',fontSize:'.72rem',minWidth:'700px'}}>
+          <thead><tr style={{background:'#f1f5f9'}}>
+            {['Index No','Full Name','ID','Gender','Grade','Club','House','Phone','Year'].map(h=><th key={h} style={{padding:'.35rem .625rem',textAlign:'left',fontWeight:800,color:'#475569',textTransform:'uppercase',fontSize:'.6rem',letterSpacing:'.06em',whiteSpace:'nowrap'}}>{h}</th>)}
+          </tr></thead>
+          <tbody>
+            {preview.rows.slice(0,8).map((s,i)=><tr key={i} style={{borderTop:'1px solid #f1f5f9'}}>
+              <td style={{padding:'.35rem .625rem',fontFamily:'monospace',color:'#4f46e5',fontWeight:700,whiteSpace:'nowrap'}}>{s.indexNo}</td>
+              <td style={{padding:'.35rem .625rem',fontWeight:700,color:'#0f172a',whiteSpace:'nowrap'}}>{s.name}</td>
+              <td style={{padding:'.35rem .625rem',color:'#64748b',whiteSpace:'nowrap'}}>{s.idNo||'—'}</td>
+              <td style={{padding:'.35rem .625rem'}}><span className={`badge ${s.gender==='Male'?'badge-blue':'badge-pink'}`}>{s.gender}</span></td>
+              <td style={{padding:'.35rem .625rem',whiteSpace:'nowrap'}}>{s.grade?<span className="badge badge-emerald">{s.grade}</span>:'—'}</td>
+              <td style={{padding:'.35rem .625rem',whiteSpace:'nowrap'}}>{s.club?<span className="badge badge-purple">{s.club}</span>:'—'}</td>
+              <td style={{padding:'.35rem .625rem',whiteSpace:'nowrap'}}>{s.house?<span className="badge badge-red">{s.house}</span>:'—'}</td>
+              <td style={{padding:'.35rem .625rem',color:'#64748b',whiteSpace:'nowrap'}}>{s.phone||'—'}</td>
+              <td style={{padding:'.35rem .625rem'}}><span className="badge badge-amber">{s.academicYear}</span></td>
+            </tr>)}
+            {preview.rows.length>8&&<tr><td colSpan={9} style={{padding:'.35rem .625rem',color:'#94a3b8',fontWeight:700,fontSize:'.65rem',textAlign:'center'}}>+{preview.rows.length-8} more students…</td></tr>}
+          </tbody>
+        </table>
+      </div>
+      {/* Field mapping summary */}
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))',gap:'.35rem',marginBottom:'.75rem'}}>
+        {[
+          ['Index No', preview.rows.filter(s=>s.indexNo).length],
+          ['Name',     preview.rows.filter(s=>s.name).length],
+          ['National ID',preview.rows.filter(s=>s.idNo).length],
+          ['Grade',    preview.rows.filter(s=>s.grade).length],
+          ['Club',     preview.rows.filter(s=>s.club).length],
+          ['House',    preview.rows.filter(s=>s.house).length],
+          ['Phone',    preview.rows.filter(s=>s.phone).length],
+          ['Email',    preview.rows.filter(s=>s.email).length],
+          ['DOB',      preview.rows.filter(s=>s.dob).length],
+          ['Parent',   preview.rows.filter(s=>s.parentName).length],
+          ['Address',  preview.rows.filter(s=>s.address).length],
+        ].map(([l,v])=><div key={l} style={{background:v>0?'#ecfdf5':'#f8fafc',border:`1px solid ${v>0?'#a7f3d0':'#e2e8f0'}`,borderRadius:'.5rem',padding:'.3rem .625rem',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+          <span style={{fontSize:'.62rem',fontWeight:700,color:'#64748b'}}>{l}</span>
+          <span style={{fontSize:'.72rem',fontWeight:900,color:v>0?'#047857':'#94a3b8'}}>{v}</span>
+        </div>)}
+      </div>
+      {saving&&<div style={{height:'6px',background:'#e2e8f0',borderRadius:'999px',overflow:'hidden',marginBottom:'.5rem'}}><div style={{height:'100%',background:'#4f46e5',borderRadius:'999px',width:progress+'%',transition:'width .3s'}}/></div>}
+      <button onClick={doImport} disabled={saving||!preview.rows.length}
+        className="btn btn-indigo w-full" style={{justifyContent:'center',padding:'.75rem',fontSize:'.78rem',textTransform:'uppercase',opacity:saving?0.7:1}}>
+        {saving?<><Ic.Sync s={14} spin/>Importing {Math.round(progress)}%…</>:<><Ic.Upload s={14}/>Import {preview.rows.length} Students → Firebase ({preview.year})</>}
+      </button>
+    </div>}
+  </div>;
+};
+
+// ── CSV Export helper ────────────────────────────────────
+const exportStudentsCSV = (students, filename) => {
+  const headers = ['Index Number','Full Name','National ID','Date of Birth','Gender','Grade / Class','Club','House','Email','Phone','Parent / Guardian','Address','Academic Year','Photo URL'];
+  const escape  = v => { const s=String(v||''); return s.includes(',')||s.includes('"')||s.includes('\n') ? '"'+s.replace(/"/g,'""')+'"' : s; };
+  const rows    = students.map(s=>[s.indexNo,s.name,s.idNo,s.dob,s.gender,s.grade,s.club,s.house,s.email,s.phone,s.parentName,s.address,s.academicYear,s.photoUrl].map(escape).join(','));
+  const csv     = [headers.join(','), ...rows].join('\n');
+  const blob    = new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  const url     = URL.createObjectURL(blob);
+  const a       = document.createElement('a'); a.href=url; a.download=filename; a.click();
+  URL.revokeObjectURL(url);
+};
+
+// ── Sheets Sync ──────────────────────────────────────────
+const SheetsSync = ({students,isSyncing,lastSync,syncResult,onSync,onImport,years,grades,clubs,houses,showToast}) => {
+  const [url,setUrl]       = React.useState(()=>localStorage.getItem('fas_gs_url')||DEFAULT_SHEET);
+  const [testMsg,setTM]    = React.useState('');
+  const [testing,setTst]   = React.useState(false);
+  const [wbUrl,setWb]      = React.useState(()=>localStorage.getItem('fas_wb_url')||'');
+  const [exportYear,setEY] = React.useState('all');
+  const [exporting,setExp] = React.useState(false);
 
   const testConn = async () => {
-    if(!url.trim()) return;
-    setTesting(true); setTM('Connecting…');
+    setTst(true); setTM('Connecting…');
     try {
-      const id = url.match(/\/d\/([a-zA-Z0-9-_]+)/)?.[1];
-      if(!id) throw new Error('Invalid URL');
-      const r = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${id}/values/A1:Z3?key=${GS_KEY}`);
+      const id=url.match(/\/d\/([a-zA-Z0-9-_]+)/)?.[1]; if(!id) throw new Error('Invalid URL');
+      const r=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${id}/values/A1:Z3?key=${GS_KEY}`);
       if(r.status===403) throw new Error('Sheet is private — share as "Anyone with link → Viewer"');
       if(!r.ok) throw new Error('Error '+r.status);
-      const d = await r.json();
-      const rows = d.values||[];
+      const d=await r.json(); const rows=d.values||[];
       if(rows.length===0) throw new Error('Sheet is empty');
-      setTM(`✓ Connected — ${rows.length-1} rows, headers: [${rows[0]?.slice(0,5).join(', ')}…]`);
+      setTM(`✓ Connected — ${rows.length-1} rows`);
     } catch(e){ setTM('✗ '+e.message); }
-    setTesting(false);
+    setTst(false);
   };
 
-  const doExport = async () => {
-    const wb = wbUrl||localStorage.getItem('fas_wb_url');
-    if(!wb){ setExpMsg('ERROR: Save your Apps Script URL in Write-back section first'); return; }
-    if(!students?.length){ setExpMsg('ERROR: No students to export'); return; }
-    setExp(true); setExpPct(0);
-    const BATCH=50; let done=0;
-    for(let i=0;i<students.length;i+=BATCH){
-      const batch=students.slice(i,i+BATCH);
-      try {
-        await fetch(wb,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'bulkUpsert',students:batch})});
-      } catch(e){}
-      done+=batch.length;
-      setExpPct(Math.round(done/students.length*100));
-      setExpMsg(`Exporting… ${done}/${students.length}`);
-      await new Promise(r=>setTimeout(r,350));
+  const doExportCSV = () => {
+    if(!students?.length){ showToast('No students to export','error'); return; }
+    if(exportYear==='all') {
+      // Export all students in one file
+      exportStudentsCSV(students, `all_students_${new Date().toISOString().split('T')[0]}.csv`);
+      showToast(`Exported ${students.length} students (all years)`,'success');
+    } else if(exportYear==='separate') {
+      // Export one CSV per academic year
+      const byYear = {};
+      students.forEach(s=>{ const y=s.academicYear||'unknown'; if(!byYear[y]) byYear[y]=[]; byYear[y].push(s); });
+      Object.entries(byYear).forEach(([y,arr])=>{
+        exportStudentsCSV(arr, `students_${y}_${new Date().toISOString().split('T')[0]}.csv`);
+      });
+      showToast(`Exported ${Object.keys(byYear).length} files (one per year)`,'success');
+    } else {
+      // Export specific year
+      const filtered = students.filter(s=>String(s.academicYear)===String(exportYear));
+      if(!filtered.length){ showToast(`No students in ${exportYear}`,'error'); return; }
+      exportStudentsCSV(filtered, `students_${exportYear}_${new Date().toISOString().split('T')[0]}.csv`);
+      showToast(`Exported ${filtered.length} students for ${exportYear}`,'success');
     }
-    setExpMsg(`✓ Done! ${done} students exported. Check your Google Sheet.`);
-    setExp(false); setExpPct(100);
   };
+
+  // Count by year for display
+  const yearCounts = React.useMemo(()=>{
+    const c={};
+    (students||[]).forEach(s=>{ const y=s.academicYear||'unknown'; c[y]=(c[y]||0)+1; });
+    return c;
+  },[students]);
 
   return <div className="sync-box">
     <div style={{display:'flex',alignItems:'center',gap:'.75rem',marginBottom:'1rem',flexWrap:'wrap'}}>
       <div style={{width:'2.5rem',height:'2.5rem',background:'#d1fae5',borderRadius:'.75rem',display:'flex',alignItems:'center',justifyContent:'center',color:'#047857'}}><Ic.Sheet s={20}/></div>
-      <div>
-        <div style={{fontWeight:900,color:'#0f172a',fontSize:'.9rem'}}>Google Sheets Sync</div>
-        <div style={{fontSize:'.66rem',color:'#64748b'}}>{lastSync?'Last sync: '+lastSync.toLocaleString():'Never synced'}</div>
-      </div>
+      <div><div style={{fontWeight:900,color:'#0f172a',fontSize:'.9rem'}}>Google Sheets Sync</div>
+      <div style={{fontSize:'.66rem',color:'#64748b'}}>{lastSync?'Last sync: '+lastSync.toLocaleString():'Never synced'}</div></div>
     </div>
-
     <div style={{marginBottom:'.75rem'}}>
       <label className="lbl">Google Sheets URL</label>
       <div style={{display:'flex',gap:'.5rem',flexWrap:'wrap'}}>
@@ -414,50 +939,65 @@ const SheetsSync = ({students,isSyncing,lastSync,syncResult,onSync}) => {
       </div>
       {testMsg&&<div style={{marginTop:'.4rem',padding:'.4rem .7rem',borderRadius:'.5rem',fontSize:'.73rem',fontWeight:700,background:testMsg.startsWith('✓')?'#ecfdf5':'#fef2f2',color:testMsg.startsWith('✓')?'#047857':'#dc2626',border:`1px solid ${testMsg.startsWith('✓')?'#a7f3d0':'#fecaca'}`}}>{testMsg}</div>}
     </div>
-
     {syncResult&&<div style={{marginBottom:'.75rem',padding:'.4rem .7rem',borderRadius:'.5rem',fontSize:'.73rem',fontWeight:700,background:syncResult.ok?'#ecfdf5':'#fef2f2',color:syncResult.ok?'#047857':'#dc2626',border:`1px solid ${syncResult.ok?'#a7f3d0':'#fecaca'}`}}>{syncResult.msg}</div>}
-
     <button className="btn btn-emerald w-full" style={{justifyContent:'center',padding:'.8rem',fontSize:'.82rem'}} onClick={()=>{localStorage.setItem('fas_gs_url',url);onSync(url);}} disabled={isSyncing}>
       {isSyncing?<><Ic.Sync s={14} spin/>Syncing…</>:<><Ic.Sync s={14}/>Sync Sheet → Firebase</>}
     </button>
-    {isSyncing&&<div style={{height:'4px',background:'#a7f3d0',borderRadius:'999px',overflow:'hidden',marginTop:'.75rem'}}><div style={{height:'100%',background:'#059669',borderRadius:'999px',width:'100%',animation:'pulse 1.2s infinite'}}/></div>}
 
+    {/* ── CSV Export Section ── */}
     <div style={{borderTop:'1px solid #a7f3d0',marginTop:'1rem',paddingTop:'1rem'}}>
-      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:'.625rem',marginBottom:'.625rem'}}>
-        <div>
-          <div style={{fontWeight:900,color:'#0f172a',fontSize:'.82rem'}}>Export Firebase → Sheet</div>
-          <div style={{fontSize:'.65rem',color:'#64748b'}}>{students?.length||0} students in Firebase</div>
-        </div>
-        <button onClick={doExport} disabled={exporting} style={{background:'linear-gradient(135deg,#7c3aed,#6d28d9)',color:'white',border:'none',borderRadius:'.625rem',padding:'.5rem 1rem',fontWeight:800,fontSize:'.73rem',cursor:'pointer',display:'flex',alignItems:'center',gap:'.3rem'}}>
-          {exporting?<><Ic.Sync s={13} spin/>{expPct}%</>:<><Ic.Upload s={13}/>Export</>}
-        </button>
+      <div style={{fontWeight:900,color:'#0f172a',fontSize:'.875rem',marginBottom:'.5rem'}}>📥 Export Students to CSV</div>
+      <div style={{fontSize:'.65rem',color:'#64748b',marginBottom:'.75rem'}}>
+        {students?.length||0} total students
+        {Object.keys(yearCounts).length>0&&' · '+Object.entries(yearCounts).map(([y,c])=>`${y}: ${c}`).join(', ')}
       </div>
-      {exporting&&<div style={{height:'6px',background:'#ede9fe',borderRadius:'999px',overflow:'hidden',marginBottom:'.4rem'}}><div style={{height:'100%',background:'#7c3aed',borderRadius:'999px',width:expPct+'%',transition:'width .3s'}}/></div>}
-      {expMsg&&<div style={{fontSize:'.73rem',fontWeight:700,padding:'.4rem .7rem',borderRadius:'.5rem',background:expMsg.startsWith('✓')?'#ecfdf5':expMsg.startsWith('ERROR:')?'#fef2f2':'#f5f3ff',color:expMsg.startsWith('✓')?'#047857':expMsg.startsWith('ERROR:')?'#dc2626':'#6d28d9',border:`1px solid ${expMsg.startsWith('✓')?'#a7f3d0':expMsg.startsWith('ERROR:')?'#fecaca':'#ddd6fe'}`}}>{expMsg}</div>}
+
+      {/* Year selector chips */}
+      <div style={{display:'flex',gap:'.35rem',flexWrap:'wrap',marginBottom:'.75rem'}}>
+        {[
+          {v:'all',   l:`All Years (${students?.length||0})`},
+          {v:'separate', l:'Separate Files'},
+          ...Object.entries(yearCounts).map(([y,c])=>({v:y,l:`${y} (${c})`}))
+        ].map(opt=>(
+          <button key={opt.v} onClick={()=>setEY(opt.v)}
+            style={{padding:'.3rem .75rem',borderRadius:'999px',border:`1.5px solid ${exportYear===opt.v?'#059669':'#e2e8f0'}`,background:exportYear===opt.v?'#059669':'#f8fafc',color:exportYear===opt.v?'white':'#64748b',fontWeight:800,fontSize:'.68rem',cursor:'pointer',transition:'all .14s'}}>
+            {opt.l}
+          </button>
+        ))}
+      </div>
+
+      <button onClick={doExportCSV}
+        style={{width:'100%',padding:'.75rem',background:'linear-gradient(135deg,#059669,#047857)',color:'white',border:'none',borderRadius:'.875rem',fontWeight:800,fontSize:'.78rem',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:'.4rem',textTransform:'uppercase',letterSpacing:'.06em'}}>
+        <Ic.Download s={14}/>
+        {exportYear==='all'?`Download All ${students?.length||0} Students`:
+         exportYear==='separate'?`Download ${Object.keys(yearCounts).length} Separate CSV Files`:
+         `Download ${yearCounts[exportYear]||0} Students (${exportYear})`}
+      </button>
     </div>
 
     <div style={{borderTop:'1px solid #a7f3d0',marginTop:'1rem',paddingTop:'.875rem'}}>
       <div style={{fontWeight:900,color:'#7c2d12',fontSize:'.82rem',marginBottom:'.4rem'}}>✏️ Apps Script Write-back URL</div>
       <div style={{display:'flex',gap:'.5rem'}}>
-        <input className="inp" value={wbUrl} onChange={e=>setWbUrl(e.target.value)} placeholder="https://script.google.com/macros/s/…/exec" style={{fontSize:'.78rem'}}/>
+        <input className="inp" value={wbUrl} onChange={e=>setWb(e.target.value)} placeholder="https://script.google.com/macros/s/…/exec" style={{fontSize:'.78rem'}}/>
         <button onClick={()=>{localStorage.setItem('fas_wb_url',wbUrl);alert('Saved!');}} style={{background:'#ea580c',color:'white',border:'none',borderRadius:'.625rem',padding:'0 .875rem',fontWeight:800,fontSize:'.73rem',cursor:'pointer',height:'46px',whiteSpace:'nowrap'}}>Save</button>
       </div>
     </div>
+    {onImport&&<CsvUpload years={years} grades={grades||[]} clubs={clubs||[]} houses={houses||[]} onImport={onImport} showToast={showToast}/>}
   </div>;
 };
 
-// ── Admin Dashboard ───────────────────────────────────────
-const AdminView = ({students,selYear,grades,clubs,houses,years,onAdd,onUpdate,onDelete,onDeleteCat,onSetGrades,onSetClubs,onSetHouses,onSetYears,onPublicView,isSyncing,lastSync,syncResult,onSync}) => {
+// ── Admin View ───────────────────────────────────────────
+const AdminView = ({students,selYear,grades,clubs,houses,years,onAdd,onUpdate,onDelete,onDeleteCat,onSetYears,onPublicView,isSyncing,lastSync,syncResult,onSync,showToast,onCsvImport}) => {
   const [tab,setTab]       = React.useState('students');
   const [modal,setModal]   = React.useState(false);
   const [editing,setEditing]= React.useState(null);
   const [form,setForm]     = React.useState({});
   const [search,setSearch] = React.useState('');
   const [sel,setSel]       = React.useState([]);
-  const [conf,setConf]     = React.useState(null); // {type,id,name,catType}
-  const [catN,setCatN]     = React.useState('');
-  const [catT,setCatT]     = React.useState('');
-  const [editCat,setEditCat]= React.useState(null);
+  const [conf,setConf]     = React.useState(null);
+  const [yearN,setYearN]   = React.useState('');
+  const [editYear,setEY]   = React.useState(null);
+  const [creating,setCreating] = React.useState(null); // 'classes'|'clubs'|'houses'
   const fileRef = React.useRef();
 
   const filtered = React.useMemo(()=>{
@@ -473,18 +1013,15 @@ const AdminView = ({students,selYear,grades,clubs,houses,years,onAdd,onUpdate,on
     e.preventDefault();
     const photo=form.photoUrl||`https://ui-avatars.com/api/?name=${encodeURIComponent(form.name||'S')}&background=random`;
     if(editing) onUpdate({...form,photoUrl:photo});
-    else onAdd({...form,photoUrl:photo,id:Date.now().toString()});
+    else onAdd({...form,photoUrl:photo});
     setModal(false);setEditing(null);setForm({});
   };
 
-  const submitCat = e=>{
-    e.preventDefault();
-    const n=catN.trim(); if(!n) return;
-    if(tab==='classes') onSetGrades(editCat?grades.map(g=>g.name===editCat?{name:n,teacher:catT}:g):[...grades,{name:n,teacher:catT}]);
-    else if(tab==='clubs') onSetClubs(editCat?clubs.map(c=>c.name===editCat?{name:n,teacher:catT}:c):[...clubs,{name:n,teacher:catT}]);
-    else if(tab==='houses') onSetHouses(editCat?houses.map(h=>h.name===editCat?{name:n,teacher:catT}:h):[...houses,{name:n,teacher:catT}]);
-    else if(tab==='years') onSetYears(editCat?years.map(y=>y===editCat?n:y):[...years,n].sort());
-    setCatN('');setCatT('');setEditCat(null);
+  const submitYear = e=>{
+    e.preventDefault(); const n=yearN.trim(); if(!n) return;
+    if(editYear) onSetYears(years.map(y=>y===editYear?n:y));
+    else onSetYears([...years,n].sort());
+    setYearN('');setEY(null);
   };
 
   const doDelete = async ()=>{
@@ -494,15 +1031,18 @@ const AdminView = ({students,selYear,grades,clubs,houses,years,onAdd,onUpdate,on
     else await onDelete(c.id);
   };
 
-  const catList = tab==='classes'?grades:tab==='clubs'?clubs:tab==='houses'?houses:tab==='years'?years.map(y=>({name:y,teacher:''})):[];
+  const fbNode = tab==='classes'?'grades':tab==='clubs'?'clubs':'houses';
+  const catList = tab==='classes'?grades:tab==='clubs'?clubs:houses;
 
   return <div style={{paddingBottom:'5rem'}}>
     {conf&&<ConfirmDel
       title={conf.type==='bulk'?`Delete ${conf.ids.length} Students`:'Confirm Delete'}
-      msg={conf.type==='bulk'?`Permanently delete ${conf.ids.length} selected students?`:`Remove "${conf.name}"? Cannot be undone.`}
+      msg={conf.type==='bulk'?`Delete ${conf.ids.length} students?`:`Remove "${conf.name}"? Cannot be undone.`}
       onConfirm={doDelete} onCancel={()=>setConf(null)}/>}
 
-
+    {/* Category creation modal */}
+    {creating&&<CatModal type={creating} item={null} fbNode={creating==='classes'?'grades':creating==='clubs'?'clubs':'houses'}
+      onClose={()=>setCreating(null)} showToast={showToast}/>}
 
     {/* Header */}
     <div className="card-xl" style={{padding:'1.25rem',marginBottom:'1rem'}}>
@@ -516,21 +1056,20 @@ const AdminView = ({students,selYear,grades,clubs,houses,years,onAdd,onUpdate,on
           <button className="btn btn-indigo btn-sm" onClick={openAdd}><Ic.Plus s={14}/>Enroll Student</button>
         </div>
       </div>
-      <SheetsSync students={students} isSyncing={isSyncing} lastSync={lastSync} syncResult={syncResult} onSync={onSync}/>
+      <SheetsSync students={students} isSyncing={isSyncing} lastSync={lastSync} syncResult={syncResult} onSync={onSync} onImport={onCsvImport} years={years} grades={grades} clubs={clubs} houses={houses} showToast={showToast}/>
     </div>
 
     {/* Tabs */}
     <div className="tab-bar" style={{marginBottom:'1rem'}}>
       {[['students','Students'],['classes','Classes'],['clubs','Clubs'],['houses','Houses'],['years','Years']].map(([id,l])=>(
         <button key={id} className={`tab-btn${tab===id?(id==='students'?' tab-indigo':' tab-emerald'):''}`}
-          onClick={()=>{setTab(id);setEditCat(null);setCatN('');setCatT('');}}>
+          onClick={()=>setTab(id)}>
           {l}
         </button>
       ))}
     </div>
 
     {tab==='students' ? <>
-      {/* Search + select bar */}
       <div style={{position:'sticky',top:'60px',zIndex:50,paddingBottom:'.4rem',marginBottom:'.4rem'}}>
         <div className="card" style={{padding:'.75rem .875rem'}}>
           <div style={{marginBottom:'.5rem'}}><SearchBar value={search} onChange={setSearch} placeholder="Search name, index or ID…"/></div>
@@ -551,8 +1090,6 @@ const AdminView = ({students,selYear,grades,clubs,houses,years,onAdd,onUpdate,on
           </div>
         </div>
       </div>
-
-      {/* Student table */}
       <div className="card-xl" style={{overflow:'hidden'}}>
         <div className="tbl-wrap"><table>
           <thead><tr style={{background:'#0f172a'}}>
@@ -579,55 +1116,76 @@ const AdminView = ({students,selYear,grades,clubs,houses,years,onAdd,onUpdate,on
                 <td><span className={`badge ${s.gender==='Male'?'badge-blue':'badge-pink'}`}>{s.gender}</span></td>
                 <td style={{textAlign:'right'}}>
                   <div style={{display:'inline-flex',gap:'.3rem'}}>
-                    <button className="btn-icon btn-edit" onClick={()=>openEdit(s)} title="Edit"><Ic.Edit/></button>
-                    <button className="btn-icon btn-del" onClick={()=>setConf({id:s.id,name:s.name})} title="Delete"><Ic.Trash/></button>
+                    <button className="btn-icon btn-edit" onClick={()=>openEdit(s)}><Ic.Edit/></button>
+                    <button className="btn-icon btn-del" onClick={()=>setConf({id:s.id,name:s.name})}><Ic.Trash/></button>
                   </div>
                 </td>
               </tr>
             )) : <tr><td colSpan={6} style={{textAlign:'center',padding:'2.5rem',color:'#cbd5e1',fontWeight:800,textTransform:'uppercase',fontSize:'.72rem'}}>
-              {search?'No students match your search':`No students enrolled for ${selYear}`}
+              {search?'No students match':'No students enrolled for '+selYear}
             </td></tr>}
           </tbody>
         </table></div>
       </div>
-    </> : <>
-      {/* Category form */}
+
+    </> : tab==='years' ? <>
       <div className="card-xl" style={{padding:'1.125rem',marginBottom:'1rem'}}>
-        <div style={{fontWeight:900,fontSize:'.875rem',color:'#0f172a',marginBottom:'.75rem'}}>
-          {editCat?'Edit':'Add'} {tab.slice(0,-1)[0].toUpperCase()+tab.slice(1,-1)}
-        </div>
-        <form onSubmit={submitCat} style={{display:'flex',gap:'.625rem',flexWrap:'wrap',alignItems:'flex-end'}}>
-          <div style={{flex:1,minWidth:'150px'}}><label className="lbl">Name</label><input className="inp" value={catN} onChange={e=>setCatN(e.target.value)} placeholder="Name…" required/></div>
-          {tab!=='years'&&<div style={{flex:1,minWidth:'150px'}}><label className="lbl">Teacher</label><input className="inp" value={catT} onChange={e=>setCatT(e.target.value)} placeholder="Teacher name…"/></div>}
+        <div style={{fontWeight:900,fontSize:'.875rem',color:'#0f172a',marginBottom:'.75rem'}}>{editYear?'Edit':'Add'} Academic Year</div>
+        <form onSubmit={submitYear} style={{display:'flex',gap:'.625rem',flexWrap:'wrap',alignItems:'flex-end'}}>
+          <div style={{flex:1,minWidth:'150px'}}><label className="lbl">Year</label><input className="inp" value={yearN} onChange={e=>setYearN(e.target.value)} placeholder="e.g. 2025" required/></div>
           <div style={{display:'flex',gap:'.4rem'}}>
-            <button type="submit" className="btn btn-emerald btn-sm">{editCat?'Update':'Create'}</button>
-            {editCat&&<button type="button" className="btn btn-ghost btn-sm" onClick={()=>{setEditCat(null);setCatN('');setCatT('');}}>Cancel</button>}
+            <button type="submit" className="btn btn-emerald btn-sm">{editYear?'Update':'Add Year'}</button>
+            {editYear&&<button type="button" className="btn btn-ghost btn-sm" onClick={()=>{setEY(null);setYearN('');}}>Cancel</button>}
           </div>
         </form>
       </div>
       <div className="card-xl" style={{overflow:'hidden'}}>
         <div className="tbl-wrap"><table>
-          <thead><tr style={{background:'#059669'}}>
-            <th style={{color:'white'}}>Name</th>
-            {tab!=='years'&&<th style={{color:'white'}}>Teacher</th>}
-            <th style={{color:'white',textAlign:'right',minWidth:'90px'}}>Actions</th>
-          </tr></thead>
+          <thead><tr style={{background:'#059669'}}><th style={{color:'white'}}>Academic Year</th><th style={{color:'white',textAlign:'right'}}>Actions</th></tr></thead>
           <tbody>
-            {catList.length>0 ? catList.map((item,i)=>(
+            {years.length>0 ? years.map((y,i)=>(
               <tr key={i}>
-                <td style={{fontWeight:800,color:'#0f172a'}}>{item.name}</td>
-                {tab!=='years'&&<td style={{color:'#64748b',fontStyle:'italic'}}>{item.teacher||'Unassigned'}</td>}
+                <td style={{fontWeight:800,color:'#0f172a'}}>{y}</td>
                 <td style={{textAlign:'right'}}>
                   <div style={{display:'inline-flex',gap:'.3rem'}}>
-                    <button className="btn-icon btn-edit" onClick={()=>{setEditCat(item.name);setCatN(item.name);setCatT(item.teacher||'');}}><Ic.Edit/></button>
-                    <button className="btn-icon btn-del" onClick={()=>setConf({catType:tab,id:item.name,name:item.name})}><Ic.Trash/></button>
+                    <button className="btn-icon btn-edit" onClick={()=>{setEY(y);setYearN(y);}}><Ic.Edit/></button>
+                    <button className="btn-icon btn-del" onClick={()=>setConf({catType:'years',id:y,name:y})}><Ic.Trash/></button>
                   </div>
                 </td>
               </tr>
-            )) : <tr><td colSpan={3} style={{textAlign:'center',padding:'2rem',color:'#cbd5e1',fontWeight:800,textTransform:'uppercase',fontSize:'.72rem'}}>No entries yet</td></tr>}
+            )) : <tr><td colSpan={2} style={{textAlign:'center',padding:'2rem',color:'#cbd5e1',fontWeight:800,textTransform:'uppercase',fontSize:'.72rem'}}>No years added</td></tr>}
           </tbody>
         </table></div>
       </div>
+
+    </> : <>
+      {/* Classes / Clubs / Houses */}
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'1rem',flexWrap:'wrap',gap:'.5rem'}}>
+        <div>
+          <div style={{fontWeight:900,fontSize:'1rem',color:'#0f172a'}}>
+            {tab==='classes'?'Classes':tab==='clubs'?'Clubs':'Houses'}
+          </div>
+          <div style={{fontSize:'.65rem',color:'#94a3b8',fontWeight:700,marginTop:'.1rem'}}>
+            {catList.length} {tab==='classes'?'class':tab==='clubs'?'club':'house'}{catList.length!==1?'es/s':''} · click any card to manage teachers
+          </div>
+        </div>
+        <button className="btn btn-emerald btn-sm" onClick={()=>setCreating(tab)}>
+          <Ic.Plus s={14}/>Create {tab==='classes'?'Class':tab==='clubs'?'Club':'House'}
+        </button>
+      </div>
+
+      {catList.length===0
+        ? <div className="card-xl"><div className="empty">
+            <div className="empty-icon"><Ic.Plus s={26}/></div>
+            <div className="empty-txt">No {tab} yet — click Create to add one</div>
+          </div></div>
+        : catList.map((item,i)=>(
+            <CatCard key={item.id||i} item={item} type={tab}
+              fbNode={tab==='classes'?'grades':tab==='clubs'?'clubs':'houses'}
+              onDelete={()=>setConf({catType:tab,id:item.name,name:item.name})}
+              showToast={showToast}/>
+          ))
+      }
     </>}
 
     {/* Student modal */}
@@ -692,7 +1250,7 @@ const AdminView = ({students,selYear,grades,clubs,houses,years,onAdd,onUpdate,on
   </div>;
 };
 
-// ── Super Admin ───────────────────────────────────────────
+// ── Super Admin ──────────────────────────────────────────
 const SuperView = ({logs,onSetAdminPass,onSetSuperPass,onWipe,onRestore,students,grades,clubs,houses,years,selYear,showToast}) => {
   const [newAP,setNAP]    = React.useState('');
   const [newSP,setNSP]    = React.useState('');
@@ -701,12 +1259,12 @@ const SuperView = ({logs,onSetAdminPass,onSetSuperPass,onWipe,onRestore,students
   const [wiping,setWiping]= React.useState(false);
   const [restoreD,setRD]  = React.useState(null);
   const [delS,setDelS]    = React.useState(null);
-  const [customSt,setCS]  = React.useState(()=>{try{const s=localStorage.getItem('fas_cs');return s?JSON.parse(s):null;}catch{return null;}});
+  const [customSt,setCS]  = React.useState(null);
   const [editSt,setESt]   = React.useState(false);
   const [stTmp,setSTmp]   = React.useState({total:0,boys:0,girls:0});
   const fileRef = React.useRef();
 
-  const cur = students.filter(s=>String(s.academicYear)===String(selYear));
+  const cur  = students.filter(s=>String(s.academicYear)===String(selYear));
   const live = {total:cur.length,boys:cur.filter(s=>s.gender==='Male').length,girls:cur.filter(s=>s.gender==='Female').length};
   const disp = customSt||live;
 
@@ -720,23 +1278,11 @@ const SuperView = ({logs,onSetAdminPass,onSetSuperPass,onWipe,onRestore,students
     const r=new FileReader();r.onload=ev=>{try{const d=JSON.parse(ev.target.result);if(d.students)setRD(d);else showToast('Invalid backup','error');}catch{showToast('Read failed','error');}};
     r.readAsText(f);if(fileRef.current)fileRef.current.value='';
   };
-
   const doWipe = async ()=>{
     setWiping(true);
-    try {
-      await onWipe();
-      setWO(false);setWT('');
-      showToast('All data wiped','success');
-    } catch(e){ showToast('Wipe failed: '+e.message,'error'); }
+    try{await onWipe();setWO(false);setWT('');showToast('All data wiped','success');}
+    catch(e){showToast('Wipe failed: '+e.message,'error');}
     setWiping(false);
-  };
-
-  const deleteSingleStudent = async id=>{
-    try {
-      await fbDEL('students/'+id);
-      showToast('Student deleted','success');
-    } catch(e){ showToast('Delete failed','error'); }
-    setDelS(null);
   };
 
   return <div className="super-bg">
@@ -744,19 +1290,9 @@ const SuperView = ({logs,onSetAdminPass,onSetSuperPass,onWipe,onRestore,students
       <div className="wipe-box">
         <div style={{display:'flex',alignItems:'center',gap:'.875rem',marginBottom:'1.25rem',paddingBottom:'1rem',borderBottom:'1px solid rgba(255,255,255,.1)'}}>
           <div style={{width:'3rem',height:'3rem',background:'rgba(220,38,38,.2)',borderRadius:'.875rem',display:'flex',alignItems:'center',justifyContent:'center',color:'#f87171'}}><Ic.Alert s={22}/></div>
-          <div>
-            <div style={{color:'white',fontWeight:900,fontSize:'1.1rem'}}>Wipe All Data</div>
-            <div style={{color:'#94a3b8',fontSize:'.78rem'}}>Permanently deletes all Firebase data</div>
-          </div>
+          <div><div style={{color:'white',fontWeight:900,fontSize:'1.1rem'}}>Wipe All Data</div>
+          <div style={{color:'#94a3b8',fontSize:'.78rem'}}>Permanently deletes all Firebase data</div></div>
           <button onClick={()=>setWO(false)} style={{marginLeft:'auto',background:'rgba(255,255,255,.08)',border:'none',borderRadius:'.5rem',padding:'.4rem',cursor:'pointer',color:'#94a3b8',display:'flex'}}><Ic.X s={16}/></button>
-        </div>
-        <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'.625rem',marginBottom:'1.125rem'}}>
-          {[['Total',students.length],['This Year',cur.length],['Year',selYear]].map(([l,v])=>(
-            <div key={l} style={{background:'rgba(255,255,255,.06)',border:'1px solid rgba(255,255,255,.1)',borderRadius:'.75rem',padding:'.75rem',textAlign:'center'}}>
-              <div style={{fontSize:'1.4rem',fontWeight:900,color:'white'}}>{v}</div>
-              <div style={{fontSize:'.6rem',fontWeight:800,textTransform:'uppercase',letterSpacing:'.08em',color:'#94a3b8'}}>{l}</div>
-            </div>
-          ))}
         </div>
         <div style={{marginBottom:'1rem'}}>
           <div style={{fontSize:'.68rem',fontWeight:800,color:'#f87171',textTransform:'uppercase',letterSpacing:'.08em',marginBottom:'.4rem',textAlign:'center'}}>Type DELETE ALL DATA to confirm</div>
@@ -776,10 +1312,10 @@ const SuperView = ({logs,onSetAdminPass,onSetSuperPass,onWipe,onRestore,students
       <div className="modal-box modal-sm" style={{textAlign:'center'}}>
         <div style={{width:'3rem',height:'3rem',background:'#fef2f2',borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto .75rem',color:'#dc2626'}}><Ic.Trash s={20}/></div>
         <h3 style={{fontSize:'1rem',fontWeight:900,color:'#0f172a',marginBottom:'.4rem'}}>Delete Student</h3>
-        <p style={{color:'#64748b',fontSize:'.85rem',marginBottom:'1.25rem'}}>Remove <strong>{delS.name}</strong>? Cannot be undone.</p>
+        <p style={{color:'#64748b',fontSize:'.85rem',marginBottom:'1.25rem'}}>Remove <strong>{delS.name}</strong>?</p>
         <div style={{display:'flex',gap:'.625rem'}}>
           <button className="btn btn-ghost w-full" style={{justifyContent:'center',padding:'.7rem'}} onClick={()=>setDelS(null)}>Cancel</button>
-          <button className="btn btn-red w-full" style={{justifyContent:'center',padding:'.7rem'}} onClick={()=>deleteSingleStudent(delS.id)}><Ic.Trash s={13}/>Delete</button>
+          <button className="btn btn-red w-full" style={{justifyContent:'center',padding:'.7rem'}} onClick={async()=>{await fbDEL('students/'+delS.id);showToast('Deleted','success');setDelS(null);}}><Ic.Trash s={13}/>Delete</button>
         </div>
       </div>
     </div>}
@@ -787,7 +1323,7 @@ const SuperView = ({logs,onSetAdminPass,onSetSuperPass,onWipe,onRestore,students
     {restoreD&&<div className="modal-bg">
       <div className="modal-box modal-sm" style={{textAlign:'center'}}>
         <h3 style={{fontSize:'1rem',fontWeight:900,color:'#0f172a',marginBottom:'.4rem'}}>Restore Database</h3>
-        <p style={{color:'#64748b',fontSize:'.85rem',marginBottom:'1.25rem'}}>Overwrite all data with <strong>{restoreD.students?.length||0} students</strong> from backup?</p>
+        <p style={{color:'#64748b',fontSize:'.85rem',marginBottom:'1.25rem'}}>Overwrite with <strong>{restoreD.students?.length||0} students</strong> from backup?</p>
         <div style={{display:'flex',gap:'.625rem'}}>
           <button className="btn btn-ghost w-full" style={{justifyContent:'center',padding:'.7rem'}} onClick={()=>setRD(null)}>Cancel</button>
           <button className="btn btn-indigo w-full" style={{justifyContent:'center',padding:'.7rem'}} onClick={()=>{onRestore(restoreD);setRD(null);showToast('Restored','success');}}>Restore</button>
@@ -797,8 +1333,7 @@ const SuperView = ({logs,onSetAdminPass,onSetSuperPass,onWipe,onRestore,students
 
     <input type="file" ref={fileRef} className="hidden" accept=".json" onChange={importBk}/>
 
-    {/* Header */}
-    <div className="super-card" style={{padding:'1.25rem',marginBottom:'1rem',display:'flex',alignItems:'center',gap:.875+'rem',flexWrap:'wrap'}}>
+    <div className="super-card" style={{padding:'1.25rem',marginBottom:'1rem',display:'flex',alignItems:'center',gap:'.875rem',flexWrap:'wrap'}}>
       <div style={{width:'3rem',height:'3rem',background:'linear-gradient(135deg,#6366f1,#4f46e5)',borderRadius:'.875rem',display:'flex',alignItems:'center',justifyContent:'center',color:'white'}}><Ic.Lock s={22}/></div>
       <div>
         <div style={{color:'white',fontWeight:900,fontSize:'1.2rem'}}>Super Admin</div>
@@ -809,23 +1344,11 @@ const SuperView = ({logs,onSetAdminPass,onSetSuperPass,onWipe,onRestore,students
       </div>
     </div>
 
-    {/* Stats */}
     <div className="super-card" style={{padding:'1.25rem',marginBottom:'1rem'}}>
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:'.5rem',marginBottom:'.875rem'}}>
         <div style={{color:'white',fontWeight:900,fontSize:'.9rem'}}>Statistics {customSt?'(custom)':'(live)'}</div>
         <div style={{display:'flex',gap:'.4rem'}}>
-          {customSt&&<button onClick={async ()=>{
-    setCS(null);
-    // ONLY clear studentstat-968de Firebase — Student Statistics file reverts to live
-    try {
-        await fetch('https://studentstat-968de-default-rtdb.firebaseio.com/custom_stats.json',{
-            method:'PUT',
-            headers:{'Content-Type':'application/json'},
-            body:JSON.stringify({active:false})
-        });
-    } catch(e){}
-    showToast('Reset to live statistics','success');
-}} style={{background:'rgba(16,185,129,.15)',border:'1px solid rgba(16,185,129,.3)',borderRadius:'.5rem',padding:'.3rem .75rem',color:'#10b981',fontSize:'.68rem',fontWeight:800,cursor:'pointer'}}>Use Live</button>}
+          {customSt&&<button onClick={async()=>{setCS(null);try{await fetch('https://studentstat-968de-default-rtdb.firebaseio.com/custom_stats.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({active:false})});}catch(e){}showToast('Reset to live','success');}} style={{background:'rgba(16,185,129,.15)',border:'1px solid rgba(16,185,129,.3)',borderRadius:'.5rem',padding:'.3rem .75rem',color:'#10b981',fontSize:'.68rem',fontWeight:800,cursor:'pointer'}}>Use Live</button>}
           <button onClick={()=>{setSTmp(disp);setESt(!editSt);}} style={{background:'rgba(255,255,255,.1)',border:'1px solid rgba(255,255,255,.15)',borderRadius:'.5rem',padding:'.3rem .75rem',color:'white',fontSize:'.68rem',fontWeight:800,cursor:'pointer'}}>{editSt?'Cancel':'Edit'}</button>
         </div>
       </div>
@@ -840,61 +1363,37 @@ const SuperView = ({logs,onSetAdminPass,onSetSuperPass,onWipe,onRestore,students
               <input className="super-inp" type="number" min="0" value={stTmp[k]} onChange={e=>setSTmp({...stTmp,[k]:parseInt(e.target.value)||0})}/></div>
           ))}
         </div>
-        <button onClick={async ()=>{
-            setCS(stTmp);
-            // ONLY write to studentstat-968de Firebase — Student Statistics file reads from here
-            // Does NOT affect public portal or localStorage
-            try {
-                await fetch('https://studentstat-968de-default-rtdb.firebaseio.com/custom_stats.json',{
-                    method:'PUT',
-                    headers:{'Content-Type':'application/json'},
-                    body:JSON.stringify({
-                        total: stTmp.total,
-                        boys:  stTmp.boys,
-                        girls: stTmp.girls,
-                        active: true,
-                        updatedAt: new Date().toISOString()
-                    })
-                });
-                showToast('Stats saved — Student Statistics display updated','success');
-            } catch(e){
-                showToast('Save failed: '+e.message,'error');
-            }
-            setESt(false);
-        }}
+        <button onClick={async()=>{setCS(stTmp);try{await fetch('https://studentstat-968de-default-rtdb.firebaseio.com/custom_stats.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({...stTmp,active:true,updatedAt:new Date().toISOString()})});showToast('Stats saved — Statistics display updated','success');}catch(e){showToast('Save failed','error');}setESt(false);}}
           style={{background:'linear-gradient(135deg,#059669,#047857)',border:'none',borderRadius:'.625rem',padding:'.65rem 1.25rem',color:'white',fontWeight:800,fontSize:'.75rem',cursor:'pointer',display:'flex',alignItems:'center',gap:'.35rem'}}>
           <Ic.Save/>Save Stats
         </button>
       </div>}
     </div>
 
-    {/* Delete students list */}
     <div style={{background:'rgba(220,38,38,.08)',border:'1px solid rgba(220,38,38,.2)',borderRadius:'1.25rem',padding:'1.25rem',marginBottom:'1rem'}}>
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:'.625rem',marginBottom:'.875rem'}}>
-        <div>
-          <div style={{color:'#f87171',fontWeight:900,fontSize:'.9rem'}}>Students — {selYear}</div>
-          <div style={{color:'rgba(248,113,113,.6)',fontSize:'.72rem'}}>{cur.length} students</div>
-        </div>
+        <div><div style={{color:'#f87171',fontWeight:900,fontSize:'.9rem'}}>Students — {selYear}</div>
+        <div style={{color:'rgba(248,113,113,.6)',fontSize:'.72rem'}}>{cur.length} students</div></div>
         <button onClick={()=>setWO(true)} style={{background:'linear-gradient(135deg,#dc2626,#991b1b)',color:'white',border:'none',borderRadius:'.75rem',padding:'.7rem 1.25rem',fontSize:'.72rem',fontWeight:800,textTransform:'uppercase',letterSpacing:'.06em',cursor:'pointer',display:'flex',alignItems:'center',gap:'.4rem'}}>
           <Ic.Trash s={13}/>Wipe All Data
         </button>
       </div>
-      {cur.length===0 ? <div style={{textAlign:'center',padding:'1.25rem',color:'rgba(255,255,255,.25)',fontSize:'.72rem',fontWeight:800,textTransform:'uppercase'}}>No students in {selYear}</div>
-      : <div style={{maxHeight:'280px',overflowY:'auto',display:'flex',flexDirection:'column',gap:'.35rem'}}>
-        {cur.map(s=><div key={s.id} className="del-row">
-          <div style={{display:'flex',alignItems:'center',gap:'.5rem',minWidth:0}}>
-            <img src={s.photoUrl||`https://ui-avatars.com/api/?name=${encodeURIComponent(s.name)}&background=random`} style={{width:'1.875rem',height:'1.875rem',borderRadius:'.4rem',objectFit:'cover',flexShrink:0}}/>
-            <div style={{minWidth:0}}>
-              <div style={{color:'white',fontWeight:800,fontSize:'.82rem',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{s.name}</div>
-              <div style={{color:'rgba(255,255,255,.4)',fontSize:'.68rem',fontFamily:'monospace'}}>{s.indexNo}</div>
+      {cur.length===0
+        ? <div style={{textAlign:'center',padding:'1.25rem',color:'rgba(255,255,255,.25)',fontSize:'.72rem',fontWeight:800,textTransform:'uppercase'}}>No students in {selYear}</div>
+        : <div style={{maxHeight:'280px',overflowY:'auto',display:'flex',flexDirection:'column',gap:'.35rem'}}>
+          {cur.map(s=><div key={s.id} className="del-row">
+            <div style={{display:'flex',alignItems:'center',gap:'.5rem',minWidth:0}}>
+              <img src={s.photoUrl||`https://ui-avatars.com/api/?name=${encodeURIComponent(s.name)}&background=random`} style={{width:'1.875rem',height:'1.875rem',borderRadius:'.4rem',objectFit:'cover',flexShrink:0}}/>
+              <div style={{minWidth:0}}>
+                <div style={{color:'white',fontWeight:800,fontSize:'.82rem',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{s.name}</div>
+                <div style={{color:'rgba(255,255,255,.4)',fontSize:'.68rem',fontFamily:'monospace'}}>{s.indexNo}</div>
+              </div>
             </div>
-          </div>
-          <button onClick={()=>setDelS(s)} style={{background:'rgba(220,38,38,.2)',color:'#f87171',border:'1px solid rgba(220,38,38,.3)',borderRadius:'.4rem',padding:'.3rem .625rem',fontSize:'.68rem',fontWeight:800,textTransform:'uppercase',cursor:'pointer',whiteSpace:'nowrap',flexShrink:0}}>Delete</button>
-        </div>)}
-      </div>}
+            <button onClick={()=>setDelS(s)} style={{background:'rgba(220,38,38,.2)',color:'#f87171',border:'1px solid rgba(220,38,38,.3)',borderRadius:'.4rem',padding:'.3rem .625rem',fontSize:'.68rem',fontWeight:800,textTransform:'uppercase',cursor:'pointer',whiteSpace:'nowrap',flexShrink:0}}>Delete</button>
+          </div>)}
+        </div>}
     </div>
 
-    {/* Credentials + Audit */}
     <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(260px,1fr))',gap:'1rem',marginBottom:'1rem'}}>
       <div className="super-card" style={{padding:'1.25rem'}}>
         <div style={{display:'flex',alignItems:'center',gap:'.5rem',marginBottom:'1rem'}}><Ic.Key s={18}/><span style={{color:'white',fontWeight:900,fontSize:'.9rem'}}>Credentials</span></div>
@@ -920,8 +1419,7 @@ const SuperView = ({logs,onSetAdminPass,onSetSuperPass,onWipe,onRestore,students
       </div>
     </div>
 
-    {/* Backup */}
-    <div className="super-card" style={{padding:'1.25rem',display:'flex',alignItems:'center',flexWrap:'wrap',gap:.875+'rem',justifyContent:'space-between'}}>
+    <div className="super-card" style={{padding:'1.25rem',display:'flex',alignItems:'center',flexWrap:'wrap',gap:'.875rem',justifyContent:'space-between'}}>
       <div><div style={{color:'white',fontWeight:900,fontSize:'.875rem'}}>Backup & Restore</div><div style={{color:'rgba(255,255,255,.4)',fontSize:'.72rem'}}>Export or restore full JSON backup</div></div>
       <div style={{display:'flex',gap:'.5rem',flexWrap:'wrap'}}>
         <button onClick={exportBk} style={{background:'linear-gradient(135deg,#6366f1,#4f46e5)',border:'none',borderRadius:'.625rem',padding:'.65rem 1.1rem',color:'white',fontWeight:800,fontSize:'.72rem',textTransform:'uppercase',cursor:'pointer',display:'flex',alignItems:'center',gap:'.35rem'}}><Ic.Download s={13}/>Export</button>
@@ -931,9 +1429,9 @@ const SuperView = ({logs,onSetAdminPass,onSetSuperPass,onWipe,onRestore,students
   </div>;
 };
 
-// ── Login ─────────────────────────────────────────────────
+// ── Login ────────────────────────────────────────────────
 const LoginBox = ({title,value,setValue,onSubmit,icon,dark}) => (
-  <div className={`login-box`} style={{background:dark?'#0f172a':'white',border:`1px solid ${dark?'#1e293b':'#e2e8f0'}`}}>
+  <div className="login-box" style={{background:dark?'#0f172a':'white',border:`1px solid ${dark?'#1e293b':'#e2e8f0'}`}}>
     <div style={{display:'flex',flexDirection:'column',alignItems:'center',marginBottom:'1.25rem'}}>
       <div style={{width:'3.5rem',height:'3.5rem',background:'#4f46e5',borderRadius:'1rem',display:'flex',alignItems:'center',justifyContent:'center',color:'white',marginBottom:'.875rem',boxShadow:'0 8px 20px rgba(79,70,229,.3)'}}>{icon}</div>
       <h2 style={{fontSize:'1.2rem',fontWeight:900,color:dark?'white':'#0f172a'}}>{title}</h2>
@@ -946,7 +1444,7 @@ const LoginBox = ({title,value,setValue,onSubmit,icon,dark}) => (
   </div>
 );
 
-// ── Sidebar ───────────────────────────────────────────────
+// ── Sidebar ──────────────────────────────────────────────
 const Sidebar = ({selYear,setSelYear,years,stats}) => (
   <div className="sidebar-col">
     <div className="card" style={{padding:'1.125rem',marginBottom:'1rem'}}>
@@ -967,7 +1465,7 @@ const Sidebar = ({selYear,setSelYear,years,stats}) => (
   </div>
 );
 
-// ── Mobile Drawer ─────────────────────────────────────────
+// ── Drawer ───────────────────────────────────────────────
 const Drawer = ({open,onClose,view,setView,selYear,setSelYear,years,stats,isAdmin,isSuper}) => (
   <>
     <div className={`drawer-ov${open?' open':''}`} onClick={onClose}/>
@@ -989,52 +1487,36 @@ const Drawer = ({open,onClose,view,setView,selYear,setSelYear,years,stats,isAdmi
             {item.ic}{item.l}
           </button>
         ))}
-        <div style={{marginTop:'.875rem',padding:'.75rem',background:'#f8fafc',borderRadius:'.625rem',border:'1px solid #e2e8f0'}}>
-          <div style={{fontSize:'.65rem',fontWeight:800,color:'#475569',textTransform:'uppercase',letterSpacing:'.08em',marginBottom:'.5rem'}}>Stats ({selYear})</div>
-          {[['Total',stats.total,'#4f46e5'],['Boys',stats.boys,'#2563eb'],['Girls',stats.girls,'#db2777']].map(([l,v,c])=>(
-            <div key={l} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'.35rem 0',borderBottom:'1px solid #f1f5f9'}}>
-              <span style={{fontSize:'.78rem',color:'#64748b',fontWeight:600}}>{l}</span>
-              <span style={{fontSize:'1rem',fontWeight:900,color:c}}>{v}</span>
-            </div>
-          ))}
-        </div>
       </div>
     </div>
   </>
 );
 
-// ── Sheet helpers ─────────────────────────────────────────
+// ── Sheet helpers ────────────────────────────────────────
 const HMAP = {
   'name':'name','fullname':'name','student name':'name','student':'name','full name':'name',
-  'indexno':'indexNo','index no':'indexNo','index':'indexNo','student id':'indexNo','index number':'indexNo','idx':'indexNo',
+  'indexno':'indexNo','index no':'indexNo','index':'indexNo','student id':'indexNo','index number':'indexNo',
   'idno':'idNo','id no':'idNo','id':'idNo','nic':'idNo','national id':'idNo','reg no':'idNo',
-  'dob':'dob','date of birth':'dob','birthdate':'dob','birth date':'dob',
-  'gender':'gender','sex':'gender',
-  'grade':'grade','class':'grade','level':'grade','form':'grade','classroom':'grade',
-  'club':'club','society':'club','activity':'club','extracurricular':'club',
-  'house':'house','team':'house','dormitory':'house',
-  'email':'email','email address':'email','e-mail':'email',
-  'address':'address','permanent address':'address','home address':'address',
-  'academicyear':'academicYear','academic year':'academicYear','year':'academicYear','intake':'academicYear','batch':'academicYear',
-  'photo':'photoUrl','photourl':'photoUrl','image':'photoUrl','picture':'photoUrl',
-  'phone':'phone','mobile':'phone','contact':'phone','phone number':'phone',
-  'parent':'parentName','guardian':'parentName','parent name':'parentName',
+  'dob':'dob','date of birth':'dob','gender':'gender','sex':'gender',
+  'grade':'grade','class':'grade','level':'grade','form':'grade',
+  'club':'club','society':'club','house':'house','team':'house',
+  'email':'email','address':'address',
+  'academicyear':'academicYear','academic year':'academicYear','year':'academicYear',
+  'phone':'phone','mobile':'phone','parent':'parentName','guardian':'parentName',
 };
-
 async function fetchSheetData(url) {
-  const id = url.match(/\/d\/([a-zA-Z0-9-_]+)/)?.[1];
+  const id=url.match(/\/d\/([a-zA-Z0-9-_]+)/)?.[1];
   if(!id) throw new Error('Invalid sheet URL');
-  const r = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${id}/values/A1:Z5000?key=${GS_KEY}`);
-  if(r.status===403) throw new Error('Sheet is private — share as "Anyone with link → Viewer"');
+  const r=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${id}/values/A1:Z5000?key=${GS_KEY}`);
+  if(r.status===403) throw new Error('Sheet is private');
   if(!r.ok) throw new Error('Sheets API error '+r.status);
-  const d = await r.json();
+  const d=await r.json();
   if(!d.values||d.values.length<2) throw new Error('Sheet has no data rows');
   return d.values;
 }
-
-function parseSheet(rows, fallbackYear) {
-  const hdrs = rows[0].map(h=>(h||'').trim().toLowerCase());
-  const out = [];
+function parseSheet(rows,fallbackYear) {
+  const hdrs=rows[0].map(h=>(h||'').trim().toLowerCase());
+  const out=[];
   for(let i=1;i<rows.length;i++){
     const row=rows[i];
     if(!row||row.every(c=>!String(c).trim())) continue;
@@ -1050,50 +1532,39 @@ function parseSheet(rows, fallbackYear) {
   return out;
 }
 
-// ── Main App ──────────────────────────────────────────────
+// ── Main App ─────────────────────────────────────────────
 const App = () => {
-  const [students,setStudents]   = React.useState([]);
-  const [grades,setGrades]       = React.useState([]);
-  const [clubs,setClubs]         = React.useState([]);
-  const [houses,setHouses]       = React.useState([]);
-  const [years,setYears]         = React.useState(INIT_YEARS);
-  const [logs,setLogs]           = React.useState([]);
-  const [adminPass,setAP]        = React.useState(()=>localStorage.getItem('fas_ap')||'admin123');
-  const [superPass,setSP]        = React.useState(()=>localStorage.getItem('fas_sp')||'super123');
-  const [view,setView]           = React.useState('public');
-  const [isAdmin,setIsAdmin]     = React.useState(false);
-  const [isSuper,setIsSuper]     = React.useState(false);
-  const [passIn,setPassIn]       = React.useState('');
-  const [toast,setToast]         = React.useState(null);
-  const [drawer,setDrawer]       = React.useState(false);
-  const [selYear,setSelYear]     = React.useState(INIT_YEARS[0]);
-  const [logoClicks,setLC]       = React.useState(0);
-  const [showNav,setShowNav]     = React.useState(false);
-  const [isSyncing,setSyncing]   = React.useState(false);
-  const [lastSync,setLastSync]   = React.useState(()=>{const s=localStorage.getItem('fas_ls');return s?new Date(s):null;});
-  const [syncResult,setSyncRes]  = React.useState(null);
-  const [customSt,setCustomSt]   = React.useState(null); // never affects public portal
+  const [students,setStudents] = React.useState([]);
+  const [grades,  setGrades]   = React.useState([]);
+  const [clubs,   setClubs]    = React.useState([]);
+  const [houses,  setHouses]   = React.useState([]);
+  const [years,   setYears]    = React.useState(INIT_YEARS);
+  const [logs,    setLogs]     = React.useState([]);
+  const [adminPass,setAP]      = React.useState(()=>localStorage.getItem('fas_ap')||'admin123');
+  const [superPass,setSP]      = React.useState(()=>localStorage.getItem('fas_sp')||'super123');
+  const [view,    setView]     = React.useState('public');
+  const [isAdmin, setIsAdmin]  = React.useState(false);
+  const [isSuper, setIsSuper]  = React.useState(false);
+  const [passIn,  setPassIn]   = React.useState('');
+  const [toast,   setToast]    = React.useState(null);
+  const [drawer,  setDrawer]   = React.useState(false);
+  const [selYear, setSelYear]  = React.useState(INIT_YEARS[0]);
+  const [logoClicks,setLC]     = React.useState(0);
+  const [showNav, setShowNav]  = React.useState(false);
+  const [isSyncing,setSyncing] = React.useState(false);
+  const [lastSync, setLastSync]= React.useState(()=>{const s=localStorage.getItem('fas_ls');return s?new Date(s):null;});
+  const [syncResult,setSyncRes]= React.useState(null);
 
-  // Firebase realtime listeners
   React.useEffect(()=>{
-    const db = window._fasDb;
-    if(!db) return;
-    const refs = {
-      students: db.ref('students'),
-      grades:   db.ref('grades'),
-      clubs:    db.ref('clubs'),
-      houses:   db.ref('houses'),
-      years:    db.ref('academicYears'),
-    };
+    const db=window._fasDb; if(!db) return;
+    const refs={students:db.ref('students'),grades:db.ref('grades'),clubs:db.ref('clubs'),houses:db.ref('houses'),years:db.ref('academicYears')};
     refs.students.on('value',s=>{const d=s.val();setStudents(d?Object.keys(d).map(k=>({id:k,...d[k]})):[]);});
-    refs.grades.on('value',s=>{const d=s.val();setGrades(d?Object.keys(d).map(k=>({id:k,...d[k]})):[]);});
-    refs.clubs.on('value',s=>{const d=s.val();setClubs(d?Object.keys(d).map(k=>({id:k,...d[k]})):[]);});
-    refs.houses.on('value',s=>{const d=s.val();setHouses(d?Object.keys(d).map(k=>({id:k,...d[k]})):[]);});
+    refs.grades.on('value',s=>{const d=s.val();setGrades(d?Object.keys(d).map(k=>({id:k,...d[k],teachers:d[k].teachers||{}})):[]);});
+    refs.clubs.on('value',s=>{const d=s.val();setClubs(d?Object.keys(d).map(k=>({id:k,...d[k],teachers:d[k].teachers||{}})):[]);});
+    refs.houses.on('value',s=>{const d=s.val();setHouses(d?Object.keys(d).map(k=>({id:k,...d[k],teachers:d[k].teachers||{}})):[]);});
     refs.years.on('value',s=>{const d=s.val();if(d){const y=Object.values(d);setYears(y);setSelYear(p=>y.includes(p)?p:y[0]);}});
     return()=>Object.values(refs).forEach(r=>r.off('value'));
   },[]);
-
-  // Cross-tab custom stats sync — disabled, custom stats only affect Student Statistics file
 
   React.useEffect(()=>{localStorage.setItem('fas_ap',adminPass);localStorage.setItem('fas_sp',superPass);},[adminPass,superPass]);
 
@@ -1106,17 +1577,12 @@ const App = () => {
     setTimeout(()=>setLC(0),3000);
   };
 
-  // Auth
   const loginAdmin = e=>{e.preventDefault();if(passIn===adminPass){setIsAdmin(true);setPassIn('');addLog('Admin login');}else showToast('Invalid key','error');};
   const loginSuper = e=>{e.preventDefault();if(passIn===superPass){setIsSuper(true);setPassIn('');addLog('Super login');}else showToast('Invalid key','error');};
 
-  // Student ops — all use REST API
   const addStudent = async s=>{
-    try{
-      const r=await fbPOST('students',{...s});
-      await fbPUT('students/'+r,{...s,id:r});
-      addLog('Enrolled: '+s.name);showToast('Student registered');
-    }catch(e){showToast('Add failed: '+e.message,'error');}
+    try{const r=await fbPOST('students',{...s});await fbPUT('students/'+r,{...s,id:r});addLog('Enrolled: '+s.name);showToast('Student registered');}
+    catch(e){showToast('Add failed','error');}
   };
   const updateStudent = async s=>{
     try{await fbPUT('students/'+s.id,s);addLog('Updated: '+s.name);showToast('Record updated');}
@@ -1124,64 +1590,56 @@ const App = () => {
   };
   const deleteStudent = async id=>{
     try{await fbDEL('students/'+id);addLog('Student deleted');showToast('Deleted','success');}
-    catch(e){showToast('Delete failed: '+e.message,'error');throw e;}
+    catch(e){showToast('Delete failed','error');throw e;}
   };
 
-  // Category ops
-  const setGradesF = async g=>{try{await fbDEL('grades');for(const x of g)await fbPOST('grades',x);setGrades(g);}catch(e){showToast('Error','error');}};
-  const setClubsF  = async c=>{try{await fbDEL('clubs'); for(const x of c)await fbPOST('clubs',x); setClubs(c);}catch(e){showToast('Error','error');}};
-  const setHousesF = async h=>{try{await fbDEL('houses');for(const x of h)await fbPOST('houses',x);setHouses(h);}catch(e){showToast('Error','error');}};
-  const setYearsF  = async y=>{try{await fbDEL('academicYears');for(let i=0;i<y.length;i++)await fbPUT('academicYears/'+i,y[i]);setYears(y);}catch(e){showToast('Error','error');}};
-
+  const setYearsF = async y=>{
+    try{await fbDEL('academicYears');for(let i=0;i<y.length;i++)await fbPUT('academicYears/'+i,y[i]);setYears(y);}
+    catch(e){showToast('Error','error');}
+  };
   const deleteCat = async (type,id)=>{
-    if(type==='classes')await setGradesF(grades.filter(g=>g.name!==id));
-    else if(type==='clubs')await setClubsF(clubs.filter(c=>c.name!==id));
-    else if(type==='houses')await setHousesF(houses.filter(h=>h.name!==id));
-    else if(type==='years')await setYearsF(years.filter(y=>y!==id));
+    const node=type==='classes'?'grades':type==='clubs'?'clubs':type==='houses'?'houses':'academicYears';
+    if(type==='years'){await setYearsF(years.filter(y=>y!==id));}
+    else {
+      // Find Firebase key for this category by name
+      const list=type==='classes'?grades:type==='clubs'?clubs:houses;
+      const item=list.find(x=>x.name===id);
+      if(item?.id) await fbDEL(node+'/'+item.id);
+    }
     showToast('Entry removed','success');
   };
 
-  // Wipe all data
   const wipeAll = async ()=>{
     try{
-      await fbDEL('students');
-      await fbDEL('grades');
-      await fbDEL('clubs');
-      await fbDEL('houses');
-      await fbDEL('academicYears');
-      setStudents([]);setGrades([]);setClubs([]);setHouses([]);
-      setYears(INIT_YEARS);
+      await fbDEL('students');await fbDEL('grades');await fbDEL('clubs');
+      await fbDEL('houses');await fbDEL('academicYears');
+      setStudents([]);setGrades([]);setClubs([]);setHouses([]);setYears(INIT_YEARS);
       addLog('Full system wipe');
     }catch(e){throw e;}
   };
-
-  // Restore
   const restoreDb = async data=>{
     try{
-      await fbDEL('students');await fbDEL('grades');await fbDEL('clubs');await fbDEL('houses');await fbDEL('academicYears');
-      if(data.grades)await setGradesF(data.grades);
-      if(data.clubs)await setClubsF(data.clubs);
-      if(data.houses)await setHousesF(data.houses);
-      if(data.years)await setYearsF(data.years);
-      if(data.students)for(const s of data.students){const r=await fbPOST('students',s);await fbPUT('students/'+r,{...s,id:r});}
+      await fbDEL('students');await fbDEL('grades');await fbDEL('clubs');
+      await fbDEL('houses');await fbDEL('academicYears');
+      if(data.years) await setYearsF(data.years);
+      if(data.grades) for(const x of data.grades){const id=await fbPOST('grades',{name:x.name});if(x.teachers)for(const tv of Object.values(x.teachers)) await fbPOST('grades/'+id+'/teachers',tv);}
+      if(data.clubs) for(const x of data.clubs){const id=await fbPOST('clubs',{name:x.name});if(x.teachers)for(const tv of Object.values(x.teachers)) await fbPOST('clubs/'+id+'/teachers',tv);}
+      if(data.houses) for(const x of data.houses){const id=await fbPOST('houses',{name:x.name});if(x.teachers)for(const tv of Object.values(x.teachers)) await fbPOST('houses/'+id+'/teachers',tv);}
+      if(data.students) for(const s of data.students){const r=await fbPOST('students',s);await fbPUT('students/'+r,{...s,id:r});}
       addLog('Restored: '+(data.students?.length||0)+' students');
     }catch{showToast('Restore failed','error');}
   };
 
-  // Sheet sync
   const syncSheet = async (url)=>{
     setSyncing(true);setSyncRes(null);
     try{
-      const rows = await fetchSheetData(url||localStorage.getItem('fas_gs_url')||DEFAULT_SHEET);
-      const parsed = parseSheet(rows, selYear);
+      const rows=await fetchSheetData(url||localStorage.getItem('fas_gs_url')||DEFAULT_SHEET);
+      const parsed=parseSheet(rows,selYear);
       if(parsed.length===0) throw new Error('No valid records found');
-
-      // Get existing students snapshot via REST
-      const r = await fetch(`${FB_URL}/students.json`);
-      const existing = r.ok&&await r.json()||{};
+      const r=await fetch(`${FB_URL}/students.json`);
+      const existing=r.ok&&await r.json()||{};
       const byIdx={};
       if(existing) Object.values(existing).forEach(s=>{if(s&&s.indexNo)byIdx[s.indexNo]=s;});
-
       let added=0,updated=0;
       for(const s of parsed){
         const ex=byIdx[s.indexNo];
@@ -1189,30 +1647,47 @@ const App = () => {
         else{const k=await fbPOST('students',s);await fbPUT('students/'+k,{...s,id:k});added++;}
       }
       const now=new Date();setLastSync(now);localStorage.setItem('fas_ls',now.toISOString());
-      setSyncRes({ok:true,msg:`✓ Sync done — ${added} added, ${updated} updated (${parsed.length} total)`});
+      setSyncRes({ok:true,msg:`✓ Sync done — ${added} added, ${updated} updated`});
       showToast(`Sync done: +${added} new, ${updated} updated`,'success');
       addLog(`Sheet sync: +${added}, ~${updated}`);
-    }catch(e){
-      setSyncRes({ok:false,msg:'✗ '+e.message});
-      showToast(e.message,'error');
-    }
+    }catch(e){setSyncRes({ok:false,msg:'✗ '+e.message});showToast(e.message,'error');}
     setSyncing(false);
   };
 
+  // CSV import — saves students to Firebase under selected academic year
+  const csvImport = async (rows, year, onProgress) => {
+    let done = 0;
+    // Get existing students to avoid duplicates (match by indexNo)
+    const r = await fetch(`${FB_URL}/students.json`);
+    const existing = r.ok ? await r.json() : {};
+    const byIdx = {};
+    if(existing) Object.values(existing).forEach(s=>{ if(s&&s.indexNo) byIdx[s.indexNo]=s; });
+
+    for(const s of rows) {
+      // Force academic year to selected year
+      const student = {...s, academicYear: year};
+      const ex = byIdx[student.indexNo];
+      if(ex) {
+        await fbPUT('students/'+ex.id, {...student, id:ex.id});
+      } else {
+        const key = await fbPOST('students', student);
+        await fbPUT('students/'+key, {...student, id:key});
+      }
+      done++;
+      onProgress(Math.round(done/rows.length*100));
+    }
+    addLog(`CSV import: ${rows.length} students (${year})`);
+  };
+
   const stats = React.useMemo(()=>{
-    // Public portal + sidebar always shows LIVE data — never affected by Super Admin custom stats
     const cur=students.filter(s=>String(s.academicYear)===String(selYear));
     return {total:cur.length,boys:cur.filter(s=>s.gender==='Male').length,girls:cur.filter(s=>s.gender==='Female').length};
   },[students,selYear]);
 
   return <div style={{minHeight:'100vh',background:'#f8fafc'}}>
     {toast&&<Toast msg={toast.msg} type={toast.type} onClose={()=>setToast(null)}/>}
-
     <Drawer open={drawer} onClose={()=>setDrawer(false)} view={view} setView={setView}
-      selYear={selYear} setSelYear={setSelYear} years={years} stats={stats}
-      isAdmin={isAdmin} isSuper={isSuper}/>
-
-    {/* Mobile header */}
+      selYear={selYear} setSelYear={setSelYear} years={years} stats={stats} isAdmin={isAdmin} isSuper={isSuper}/>
     <div className="mob-hdr">
       <button onClick={()=>setDrawer(true)} style={{width:'2.1rem',height:'2.1rem',borderRadius:'.45rem',background:'#f1f5f9',border:'none',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',color:'#475569'}}><Ic.Menu s={20}/></button>
       <div style={{display:'flex',alignItems:'center',gap:'.5rem'}}>
@@ -1221,8 +1696,6 @@ const App = () => {
       </div>
       <div style={{width:'2.1rem'}}/>
     </div>
-
-    {/* Desktop header */}
     <div className="desk-hdr">
       <div style={{display:'flex',alignItems:'center',gap:'.75rem'}}>
         <button onClick={handleLogoClick} style={{width:'2.25rem',height:'2.25rem',background:'#4f46e5',borderRadius:'.55rem',border:'none',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontWeight:900,fontSize:'.9rem'}}>F</button>
@@ -1240,19 +1713,17 @@ const App = () => {
         ))}
       </div>}
     </div>
-
-    {/* Main grid */}
     <div className="main-grid">
       <Sidebar selYear={selYear} setSelYear={setSelYear} years={years} stats={stats}/>
       <div>
-        {view==='public'&&<PublicView students={students} grades={grades} clubs={clubs} houses={houses} years={years} selYear={selYear} setSelYear={setSelYear} customStats={null}/>}
+        {view==='public'&&<PublicView students={students} grades={grades} clubs={clubs} houses={houses} years={years} selYear={selYear} setSelYear={setSelYear}/>}
         {view==='admin'&&(!isAdmin
           ? <LoginBox title="Staff Authorization" value={passIn} setValue={setPassIn} onSubmit={loginAdmin} icon={<Ic.Shield s={22}/>}/>
           : <AdminView students={students} selYear={selYear} grades={grades} clubs={clubs} houses={houses} years={years}
               onAdd={addStudent} onUpdate={updateStudent} onDelete={deleteStudent} onDeleteCat={deleteCat}
-              onSetGrades={setGradesF} onSetClubs={setClubsF} onSetHouses={setHousesF} onSetYears={setYearsF}
-              onPublicView={()=>setView('public')}
-              isSyncing={isSyncing} lastSync={lastSync} syncResult={syncResult} onSync={syncSheet}/>
+              onSetYears={setYearsF} onPublicView={()=>setView('public')}
+              isSyncing={isSyncing} lastSync={lastSync} syncResult={syncResult} onSync={syncSheet}
+              showToast={showToast} onCsvImport={csvImport}/>
         )}
         {view==='super'&&(!isSuper
           ? <LoginBox title="Super Authority" value={passIn} setValue={setPassIn} onSubmit={loginSuper} icon={<Ic.Lock s={22}/>} dark/>
@@ -1270,9 +1741,7 @@ const App = () => {
 
 ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
 </script>
-
 <script>
-// Firebase init — MUST be after SDK scripts load
 const firebaseConfig = {
   apiKey: "AIzaSyDuoYfArP0-ifxYZ_UKgM7_oAf0dzolANs",
   authDomain: "student-management-syste-b952d.firebaseapp.com",
@@ -1284,7 +1753,7 @@ const firebaseConfig = {
   measurementId: "G-XJLYYQK9VZ"
 };
 firebase.initializeApp(firebaseConfig);
-window._fasDb = firebase.database(); // exposed to React via window
+window._fasDb = firebase.database();
 </script>
 </body>
 </html>

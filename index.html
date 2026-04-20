@@ -1,0 +1,1290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<title>FAS Student Management System</title>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database-compat.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;overflow-x:hidden}
+body{font-family:'Inter',sans-serif;background:#f8fafc;color:#334155}
+#root{min-height:100vh}
+.main-grid{display:grid;grid-template-columns:260px 1fr;gap:1.25rem;max-width:1400px;margin:0 auto;padding:1.25rem}
+@media(max-width:1024px){.main-grid{grid-template-columns:1fr}.sidebar-col{display:none}}
+@media(max-width:768px){.main-grid{padding:0.75rem;gap:0.75rem}}
+.mob-hdr{display:none;position:sticky;top:0;z-index:200;background:white;border-bottom:1px solid #e2e8f0;padding:0.75rem 1rem;align-items:center;justify-content:space-between}
+@media(max-width:1024px){.mob-hdr{display:flex}}
+.desk-hdr{background:white;border-bottom:1px solid #e2e8f0;position:sticky;top:0;z-index:100;height:60px;display:flex;align-items:center;padding:0 1.5rem;justify-content:space-between}
+@media(max-width:1024px){.desk-hdr{display:none}}
+.card{background:white;border:1px solid #e2e8f0;border-radius:1.25rem}
+.card-xl{background:white;border:1px solid #e2e8f0;border-radius:1.75rem}
+.inp{width:100%;padding:0.7rem 1rem;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:0.75rem;font-family:inherit;font-size:0.875rem;font-weight:600;outline:none;transition:all .15s;color:#0f172a}
+.inp:focus{background:white;border-color:#818cf8;box-shadow:0 0 0 3px rgba(99,102,241,.1)}
+.inp::placeholder{color:#cbd5e1;font-weight:400}
+.lbl{display:block;font-size:0.65rem;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;margin-bottom:.3rem}
+.btn{border:none;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:.375rem;font-weight:700;transition:all .15s;border-radius:.75rem;padding:.6rem 1.2rem;font-size:.8rem}
+.btn-indigo{background:#4f46e5;color:white}.btn-indigo:hover{background:#4338ca}
+.btn-emerald{background:#059669;color:white}.btn-emerald:hover{background:#047857}
+.btn-red{background:#dc2626;color:white}.btn-red:hover{background:#b91c1c}
+.btn-ghost{background:#f1f5f9;color:#475569}.btn-ghost:hover{background:#e2e8f0}
+.btn-sm{padding:.4rem .875rem;font-size:.75rem}
+.btn-icon{padding:.45rem;border-radius:.5rem}
+.btn-edit{background:#eef2ff;color:#4f46e5}.btn-edit:hover{background:#c7d2fe}
+.btn-del{background:#fef2f2;color:#dc2626}.btn-del:hover{background:#fee2e2}
+.badge{display:inline-block;padding:.18rem .5rem;border-radius:.375rem;font-size:.62rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em}
+.badge-blue{background:#eff6ff;color:#1d4ed8}
+.badge-pink{background:#fdf2f8;color:#be185d}
+.badge-indigo{background:#eef2ff;color:#4338ca}
+.badge-emerald{background:#ecfdf5;color:#047857}
+.badge-amber{background:#fffbeb;color:#b45309}
+.badge-red{background:#fef2f2;color:#dc2626}
+.tbl-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{width:100%;border-collapse:collapse;min-width:480px}
+th{padding:.7rem 1rem;font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;text-align:left;white-space:nowrap}
+td{padding:.8rem 1rem;font-size:.875rem;border-top:1px solid #f1f5f9}
+tr:hover td{background:#f8fafc}
+.modal-bg{position:fixed;inset:0;background:rgba(15,23,42,.75);backdrop-filter:blur(6px);z-index:500;display:flex;align-items:center;justify-content:center;padding:1rem;overflow-y:auto}
+.modal-box{background:white;border-radius:1.5rem;width:100%;max-width:760px;padding:1.75rem;box-shadow:0 24px 48px rgba(0,0,0,.2);margin:auto}
+.modal-sm{max-width:440px}
+.toast{position:fixed;top:4.5rem;right:1.25rem;z-index:9999;padding:.7rem 1.1rem;border-radius:.875rem;display:flex;align-items:center;gap:.5rem;font-size:.73rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;box-shadow:0 8px 20px rgba(0,0,0,.12);animation:slideIn .2s ease-out;max-width:320px}
+.toast-success{background:white;color:#059669;border:1px solid #a7f3d0}
+.toast-error{background:#fef2f2;color:#dc2626;border:1px solid #fecaca}
+.toast-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.toast-success .toast-dot{background:#10b981;animation:pulse 1.5s infinite}
+.toast-error .toast-dot{background:#ef4444;animation:pulse 1.5s infinite}
+@keyframes slideIn{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:translateX(0)}}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.35)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spin{animation:spin .8s linear infinite}
+.stat-tile{border-radius:1rem;padding:.9rem 1rem;border:1px solid}
+.st-indigo{background:#eef2ff;border-color:#c7d2fe;color:#4338ca}
+.st-blue{background:#eff6ff;border-color:#bfdbfe;color:#1d4ed8}
+.st-pink{background:#fdf2f8;border-color:#fbcfe8;color:#be185d}
+.st-emerald{background:#ecfdf5;border-color:#a7f3d0;color:#047857}
+.stat-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:1rem}
+@media(max-width:860px){.stat-strip{grid-template-columns:repeat(2,1fr)}}
+.sst{border-radius:1rem;padding:.9rem 1rem;border:1px solid}
+.sst-i{background:#eef2ff;border-color:#c7d2fe;color:#4338ca}
+.sst-b{background:#eff6ff;border-color:#bfdbfe;color:#1d4ed8}
+.sst-r{background:#fff1f2;border-color:#fecdd3;color:#be123c}
+.sst-e{background:#ecfdf5;border-color:#a7f3d0;color:#047857}
+.sst-lbl{font-size:.6rem;font-weight:800;text-transform:uppercase;letter-spacing:.09em;opacity:.72;display:block;margin-bottom:.15rem}
+.sst-val{font-size:2rem;font-weight:900;line-height:1;letter-spacing:-.03em}
+.ypill{padding:.3rem .75rem;border-radius:999px;border:1.5px solid #e2e8f0;background:#f8fafc;font-size:.7rem;font-weight:800;color:#64748b;cursor:pointer;transition:all .14s}
+.ypill:hover{border-color:#818cf8;color:#4f46e5}
+.ypill.active{background:#4f46e5;border-color:#4f46e5;color:white;box-shadow:0 2px 8px rgba(79,70,229,.28)}
+.tab-bar{display:flex;gap:.25rem;background:#f8fafc;padding:.3rem;border-radius:1rem;border:1px solid #e2e8f0;flex-wrap:wrap}
+.tab-btn{flex:1;min-width:90px;padding:.575rem .75rem;border-radius:.75rem;border:none;cursor:pointer;font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;transition:all .15s;background:none;color:#94a3b8}
+.tab-btn:hover{background:white;color:#475569}
+.tab-indigo{background:#4f46e5;color:white;box-shadow:0 2px 8px rgba(79,70,229,.3)}
+.tab-emerald{background:#059669;color:white;box-shadow:0 2px 8px rgba(5,150,105,.3)}
+.form-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.875rem}
+@media(max-width:860px){.form-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:580px){.form-grid{grid-template-columns:1fr}}
+.col2{grid-column:span 2}
+@media(max-width:580px){.col2{grid-column:span 1}}
+.search-wrap{position:relative}
+.s-icon{position:absolute;left:.875rem;top:50%;transform:translateY(-50%);color:#94a3b8;pointer-events:none}
+.s-inp{padding-left:2.6rem!important;padding-right:5rem!important}
+.s-btn{position:absolute;right:.45rem;top:50%;transform:translateY(-50%);background:#4f46e5;color:white;border:none;padding:.35rem .8rem;border-radius:.45rem;font-size:.7rem;font-weight:700;cursor:pointer}
+.s-btn:hover{background:#4338ca}
+.profile-card{background:white;border:1px solid #e2e8f0;border-radius:1.75rem;overflow:hidden}
+.detail-box{background:#f8fafc;border:1px solid #f1f5f9;border-radius:.875rem;padding:.75rem 1rem}
+.detail-lbl{font-size:.62rem;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;margin-bottom:.3rem}
+.detail-val{font-size:.95rem;font-weight:700;color:#0f172a}
+.empty{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:3.5rem 2rem;text-align:center}
+.empty-icon{width:3.5rem;height:3.5rem;background:#f1f5f9;border-radius:.875rem;display:flex;align-items:center;justify-content:center;margin-bottom:1rem;color:#cbd5e1}
+.empty-txt{font-size:.72rem;font-weight:800;color:#cbd5e1;text-transform:uppercase;letter-spacing:.1em}
+.drawer-ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:900}
+.drawer-ov.open{display:block}
+.drawer{position:fixed;top:0;left:-290px;width:270px;height:100%;background:white;z-index:1000;transition:transform .28s cubic-bezier(.4,0,.2,1);overflow-y:auto;box-shadow:4px 0 24px rgba(0,0,0,.12)}
+.drawer.open{transform:translateX(290px)}
+.super-bg{background:linear-gradient(135deg,#0f172a,#1e293b);min-height:100vh;padding:1.25rem;padding-bottom:5rem}
+.super-card{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:1.5rem}
+.super-inp{width:100%;padding:.8rem 1rem;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.15);border-radius:.875rem;color:white;font-family:inherit;font-size:.875rem;font-weight:600;outline:none;transition:all .15s}
+.super-inp:focus{background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.3)}
+.super-inp::placeholder{color:rgba(255,255,255,.3)}
+.live-badge{display:inline-flex;align-items:center;gap:.35rem;padding:.2rem .6rem;background:rgba(16,185,129,.15);border:1px solid rgba(16,185,129,.3);border-radius:999px;font-size:.62rem;font-weight:800;color:#10b981;text-transform:uppercase;letter-spacing:.06em}
+.live-dot{width:6px;height:6px;background:#10b981;border-radius:50%;animation:pulse 1.5s infinite}
+.del-row{display:flex;align-items:center;justify-content:space-between;gap:.75rem;padding:.7rem .875rem;background:rgba(255,255,255,.04);border-radius:.75rem;border:1px solid rgba(255,255,255,.06);margin-bottom:.4rem}
+.wipe-bg{position:fixed;inset:0;background:rgba(0,0,0,.88);backdrop-filter:blur(12px);z-index:9000;display:flex;align-items:center;justify-content:center;padding:1rem}
+.wipe-box{background:linear-gradient(135deg,#1e293b,#0f172a);border-radius:1.75rem;max-width:520px;width:100%;padding:2rem;border:1px solid rgba(255,255,255,.1)}
+.wipe-inp{width:100%;padding:.875rem;background:rgba(0,0,0,.5);border:2px solid rgba(220,38,38,.4);border-radius:.75rem;color:white;font-size:.95rem;font-weight:700;text-align:center;letter-spacing:.05em;outline:none}
+.wipe-inp:focus{border-color:#dc2626;box-shadow:0 0 0 3px rgba(220,38,38,.2)}
+.wipe-inp::placeholder{color:#64748b}
+.sync-box{background:#ecfdf5;border:1px solid #a7f3d0;border-radius:1.5rem;padding:1.5rem}
+.login-box{padding:2.5rem;border-radius:2rem;max-width:380px;margin:4rem auto}
+.w-full{width:100%}
+.hidden{display:none!important}
+
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+
+const FB_URL = 'https://student-management-syste-b952d-default-rtdb.firebaseio.com';
+const GS_KEY = 'AIzaSyBDaPGla2HilWnBJLcd3zA8WbEARv1bc6g';
+const DEFAULT_SHEET = 'https://docs.google.com/spreadsheets/d/1jRiotMJ-zOwxrfYrpaofzXxmgFdQmT_piVYcgLYqKr0/edit?usp=sharing';
+const INIT_YEARS = ['2025','2026','2027','2028'];
+const Gender = {MALE:'Male',FEMALE:'Female',OTHER:'Other'};
+
+// ── Firebase REST helpers (always work) ───────────────────
+const fbDEL  = path => fetch(`${FB_URL}/${path}.json`,{method:'DELETE'});
+const fbPUT  = (path,d) => fetch(`${FB_URL}/${path}.json`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});
+const fbPOST = (path,d) => fetch(`${FB_URL}/${path}.json`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)}).then(r=>r.json()).then(r=>r.name);
+const fbPATCH= (path,d) => fetch(`${FB_URL}/${path}.json`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});
+
+// ── Icons ─────────────────────────────────────────────────
+const Ic = {
+  Search: ({s=18})=><svg width={s} height={s} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>,
+  Plus:   ({s=18})=><svg width={s} height={s} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>,
+  Edit:   ({s=15})=><svg width={s} height={s} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>,
+  Trash:  ({s=15})=><svg width={s} height={s} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>,
+  X:      ({s=18})=><svg width={s} height={s} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg>,
+  Menu:   ({s=20})=><svg width={s} height={s} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16"/></svg>,
+  Sync:   ({s=16,spin=false})=><svg width={s} height={s} fill="none" stroke="currentColor" viewBox="0 0 24 24" className={spin?'spin':''}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>,
+  Shield: ({s=22})=><svg width={s} height={s} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>,
+  Lock:   ({s=22})=><svg width={s} height={s} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>,
+  Key:    ({s=20})=><svg width={s} height={s} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>,
+  Save:   ({s=15})=><svg width={s} height={s} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg>,
+  Upload: ({s=16})=><svg width={s} height={s} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>,
+  Download:({s=16})=><svg width={s} height={s} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>,
+  Users:  ({s=16})=><svg width={s} height={s} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>,
+  Alert:  ({s=22})=><svg width={s} height={s} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.698-.833-2.464 0L4.732 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg>,
+  Activity:({s=20})=><svg width={s} height={s} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>,
+  User:   ({s=20})=><svg width={s} height={s} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>,
+  Book:   ({s=16})=><svg width={s} height={s} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>,
+  Club:   ({s=16})=><svg width={s} height={s} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>,
+  Home:   ({s=16})=><svg width={s} height={s} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>,
+  Sheet:  ({s=20})=><svg width={s} height={s} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>,
+  Check:  ({s=15})=><svg width={s} height={s} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"/></svg>,
+};
+
+// ── Toast ─────────────────────────────────────────────────
+const Toast = ({msg,type,onClose}) => {
+  React.useEffect(()=>{const t=setTimeout(onClose,5000);return()=>clearTimeout(t)},[]);
+  return <div className={`toast toast-${type}`}><div className="toast-dot"/><span style={{wordBreak:'break-word'}}>{msg}</span></div>;
+};
+
+// ── Field helpers ─────────────────────────────────────────
+const Field = ({label,children}) => <div><label className="lbl">{label}</label>{children}</div>;
+const TxtIn = ({label,value,onChange,placeholder,type='text',required}) => (
+  <Field label={label}><input className="inp" type={type} value={value||''} onChange={e=>onChange(e.target.value)} placeholder={placeholder} required={required}/></Field>
+);
+const SelIn = ({label,value,onChange,options,required}) => (
+  <Field label={label}><select className="inp" value={value||''} onChange={e=>onChange(e.target.value)} required={required} style={{cursor:'pointer'}}>
+    {options.map(o=><option key={typeof o==='string'?o:o.v} value={typeof o==='string'?o:o.v}>{typeof o==='string'?o:o.l}</option>)}
+  </select></Field>
+);
+
+// ── SearchBar ─────────────────────────────────────────────
+const SearchBar = ({value,onChange,placeholder='Search...'}) => (
+  <div className="search-wrap">
+    <div className="s-icon"><Ic.Search s={16}/></div>
+    <input className="inp s-inp" value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder}/>
+  </div>
+);
+
+// ── Confirm Delete Modal ──────────────────────────────────
+const ConfirmDel = ({title,msg,onConfirm,onCancel}) => (
+  <div className="modal-bg">
+    <div className="modal-box modal-sm" style={{textAlign:'center'}}>
+      <div style={{width:'3.25rem',height:'3.25rem',background:'#fef2f2',borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto .875rem',color:'#dc2626'}}><Ic.Trash s={22}/></div>
+      <h3 style={{fontSize:'1.1rem',fontWeight:900,color:'#0f172a',marginBottom:'.4rem'}}>{title}</h3>
+      <p style={{color:'#64748b',fontSize:'.85rem',marginBottom:'1.5rem'}}>{msg}</p>
+      <div style={{display:'flex',gap:'.75rem'}}>
+        <button className="btn btn-ghost w-full" style={{justifyContent:'center',padding:'.7rem'}} onClick={onCancel}>Cancel</button>
+        <button className="btn btn-red w-full" style={{justifyContent:'center',padding:'.7rem'}} onClick={onConfirm}><Ic.Trash/>Delete</button>
+      </div>
+    </div>
+  </div>
+);
+
+// ── Stat Strip ────────────────────────────────────────────
+const StatStrip = ({total,boys,girls,year}) => (
+  <div className="stat-strip">
+    {[['Total Students',total,'sst-i'],['Boys Enrolled',boys,'sst-b'],['Girls Enrolled',girls,'sst-r'],['Academic Year',year,'sst-e']].map(([l,v,c])=>(
+      <div key={l} className={`sst ${c}`}>
+        <span className="sst-lbl">{l}</span>
+        <span className="sst-val" style={l==='Academic Year'?{fontSize:'1.5rem'}:{}}>{v}</span>
+      </div>
+    ))}
+  </div>
+);
+
+// ── Public Dashboard ──────────────────────────────────────
+const PublicView = ({students,grades,clubs,houses,years,selYear,setSelYear,customStats}) => {
+  const [tab,setTab]       = React.useState('students');
+  const [filter,setFilter] = React.useState('');
+  const [search,setSearch] = React.useState('');
+  const [query,setQuery]   = React.useState('');
+
+  const byYear = React.useMemo(()=>students.filter(s=>String(s.academicYear)===String(selYear)),[students,selYear]);
+  const live   = {total:byYear.length,boys:byYear.filter(s=>s.gender==='Male').length,girls:byYear.filter(s=>s.gender==='Female').length};
+  const stats  = customStats||live;
+
+  const group = (tab!=='students'&&filter)
+    ? (tab==='classes'?grades:tab==='clubs'?clubs:houses).find(x=>x.name===filter) : null;
+
+  const results = React.useMemo(()=>{
+    if(tab==='students'&&!query) return [];
+    let base=[...byYear];
+    if(tab==='classes'&&filter) base=base.filter(s=>s.grade===filter);
+    else if(tab==='clubs'&&filter) base=base.filter(s=>s.club===filter);
+    else if(tab==='houses'&&filter) base=base.filter(s=>s.house===filter);
+    else if(tab!=='students'&&!filter) return [];
+    const t=(tab==='students'?query:search).toLowerCase();
+    if(t) base=base.filter(s=>s.name.toLowerCase().includes(t)||s.indexNo.toLowerCase().includes(t)||(s.idNo&&s.idNo.toLowerCase().includes(t)));
+    return base;
+  },[byYear,tab,filter,search,query]);
+
+  const gs={total:results.length,boys:results.filter(s=>s.gender==='Male').length,girls:results.filter(s=>s.gender==='Female').length};
+  const tabs=[{id:'students',l:'Students'},{id:'classes',l:'Classes'},{id:'clubs',l:'Clubs'},{id:'houses',l:'Houses'}];
+
+  return <div style={{paddingBottom:'4rem'}}>
+    <div className="card-xl" style={{padding:'1.25rem 1.5rem',marginBottom:'1rem'}}>
+      <h2 style={{fontSize:'1.4rem',fontWeight:900,color:'#0f172a',letterSpacing:'-.02em',marginBottom:'.2rem'}}>Student Information Portal</h2>
+      <p style={{fontSize:'.78rem',color:'#94a3b8'}}>Access academic records, class lists and institutional rosters</p>
+    </div>
+
+    <StatStrip total={stats.total} boys={stats.boys} girls={stats.girls} year={selYear}/>
+
+    {years.length>1&&<div className="card" style={{padding:'.875rem 1.125rem',marginBottom:'1rem',display:'flex',alignItems:'center',gap:'.75rem',flexWrap:'wrap'}}>
+      <span style={{fontSize:'.62rem',fontWeight:800,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'.09em',whiteSpace:'nowrap'}}>Year</span>
+      <div style={{display:'flex',gap:'.35rem',flexWrap:'wrap'}}>
+        {years.map(y=><button key={y} className={`ypill${selYear===y?' active':''}`} onClick={()=>{setSelYear(y);setQuery('');setSearch('');setFilter('');}}>{y}</button>)}
+      </div>
+    </div>}
+
+    <div className="card-xl" style={{padding:'1.125rem 1.25rem',marginBottom:'1rem'}}>
+      <div className="tab-bar" style={{marginBottom:'.875rem'}}>
+        {tabs.map(t=><button key={t.id} className={`tab-btn${tab===t.id?(t.id==='students'?' tab-indigo':' tab-emerald'):''}`}
+          onClick={()=>{setTab(t.id);setFilter('');setSearch('');setQuery('');}}>
+          {t.l}
+        </button>)}
+      </div>
+      <div style={{display:'flex',gap:'.75rem',flexWrap:'wrap'}}>
+        <div style={{flex:1,minWidth:'180px'}}>
+          <SearchBar value={search} onChange={v=>{setSearch(v);if(tab==='students')setQuery(v);}} placeholder={tab==='students'?'Search name, index or ID…':'Search within list…'}/>
+        </div>
+        {tab!=='students'&&<select className="inp" value={filter} onChange={e=>setFilter(e.target.value)} style={{maxWidth:'200px',cursor:'pointer'}}>
+          <option value="">Select {tab==='classes'?'Class':tab==='clubs'?'Club':'House'}…</option>
+          {(tab==='classes'?grades:tab==='clubs'?clubs:houses).map(x=><option key={x.name} value={x.name}>{x.name}</option>)}
+        </select>}
+      </div>
+    </div>
+
+    {group&&filter&&<div style={{background:'#059669',borderRadius:'1.25rem',padding:'1rem 1.25rem',marginBottom:'1rem',color:'white'}}>
+      <div style={{fontSize:'.62rem',fontWeight:800,textTransform:'uppercase',letterSpacing:'.1em',color:'rgba(255,255,255,.6)',marginBottom:'.25rem'}}>Teacher In-Charge</div>
+      <div style={{fontSize:'1.1rem',fontWeight:900,marginBottom:'.75rem'}}>{group.teacher||'No teacher assigned'}</div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'.625rem'}}>
+        {[['Total',gs.total],['Boys',gs.boys],['Girls',gs.girls]].map(([l,v])=>(
+          <div key={l} style={{background:'rgba(255,255,255,.12)',borderRadius:'.75rem',padding:'.75rem',textAlign:'center'}}>
+            <div style={{fontSize:'.6rem',fontWeight:800,textTransform:'uppercase',letterSpacing:'.08em',color:'rgba(255,255,255,.6)',marginBottom:'.2rem'}}>{l}</div>
+            <div style={{fontSize:'1.6rem',fontWeight:900}}>{v}</div>
+          </div>
+        ))}
+      </div>
+    </div>}
+
+    {tab==='students'&&query ? (
+      results.length>0 ? results.map(s=><ProfileCard key={s.id} s={s}/>) : <EmptyMsg msg="No matching student records found"/>
+    ) : tab!=='students'&&filter ? (
+      results.length>0 ? <div className="card-xl" style={{overflow:'hidden'}}>
+        <div className="tbl-wrap"><table>
+          <thead><tr style={{background:'#059669'}}>
+            <th style={{color:'white'}}>Index No</th><th style={{color:'white'}}>Name</th>
+            <th style={{color:'white'}}>{tab==='classes'?'Class':tab==='clubs'?'Club':'House'}</th>
+            <th style={{color:'white',textAlign:'right'}}>Sex</th>
+          </tr></thead>
+          <tbody>{results.map(s=><tr key={s.id}>
+            <td><span style={{fontFamily:'monospace',fontWeight:700,color:'#64748b'}}>{s.indexNo}</span></td>
+            <td style={{fontWeight:800,color:'#0f172a'}}>{s.name}</td>
+            <td><span className="badge badge-emerald">{tab==='classes'?s.grade:tab==='clubs'?s.club:s.house}</span></td>
+            <td style={{textAlign:'right'}}><span className={`badge ${s.gender==='Male'?'badge-blue':'badge-pink'}`}>{s.gender}</span></td>
+          </tr>)}</tbody>
+        </table></div>
+      </div> : <EmptyMsg msg={`No records for this ${tab.slice(0,-1)}`}/>
+    ) : <EmptyMsg msg={tab==='students'?'Search for a student to view their profile':`Select a ${tab.slice(0,-1)} to view the roster`}/>}
+  </div>;
+};
+
+const ProfileCard = ({s}) => (
+  <div className="profile-card" style={{marginBottom:'1rem',padding:'1.25rem'}}>
+    <div style={{display:'flex',flexDirection:'column',alignItems:'center',marginBottom:'1.25rem',gap:'.625rem'}}>
+      <img src={s.photoUrl||`https://ui-avatars.com/api/?name=${encodeURIComponent(s.name)}&background=random&size=200`}
+        style={{width:'6rem',height:'6rem',borderRadius:'1.25rem',objectFit:'cover',border:'3px solid #f1f5f9'}}/>
+      <div style={{textAlign:'center'}}>
+        <div style={{fontSize:'1.3rem',fontWeight:900,color:'#0f172a'}}>{s.name}</div>
+        <div style={{display:'flex',gap:'.4rem',justifyContent:'center',marginTop:'.3rem',flexWrap:'wrap'}}>
+          <span className="badge badge-indigo">{s.indexNo}</span>
+          <span className={`badge ${s.gender==='Male'?'badge-blue':'badge-pink'}`}>{s.gender}</span>
+          {s.grade&&<span className="badge badge-emerald">{s.grade}</span>}
+          {s.academicYear&&<span className="badge badge-amber">{s.academicYear}</span>}
+        </div>
+      </div>
+    </div>
+    <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:'.625rem'}}>
+      {[['Index No',s.indexNo],['ID Card',s.idNo],['Date of Birth',s.dob],['Academic Year',s.academicYear],
+        ['Grade',s.grade],['Club',s.club||'None'],['House',s.house||'None'],['Email',s.email],
+        ['Phone',s.phone],['Address',s.address],s.parentName&&['Parent',s.parentName]].filter(Boolean).map(([l,v])=>(
+        <div key={l} className="detail-box"><div className="detail-lbl">{l}</div><div className="detail-val">{v||'—'}</div></div>
+      ))}
+    </div>
+  </div>
+);
+
+const EmptyMsg = ({msg}) => (
+  <div className="card-xl"><div className="empty">
+    <div className="empty-icon"><Ic.Search s={26}/></div>
+    <div className="empty-txt">{msg}</div>
+  </div></div>
+);
+
+// ── Sheets Sync Panel ─────────────────────────────────────
+const SheetsSync = ({students,isSyncing,lastSync,syncResult,onSync}) => {
+  const [url,setUrl]           = React.useState(()=>localStorage.getItem('fas_gs_url')||DEFAULT_SHEET);
+  const [testMsg,setTM]        = React.useState('');
+  const [testing,setTesting]   = React.useState('');
+  const [wbUrl,setWbUrl]       = React.useState(()=>localStorage.getItem('fas_wb_url')||'');
+  const [exporting,setExp]     = React.useState(false);
+  const [expPct,setExpPct]     = React.useState(0);
+  const [expMsg,setExpMsg]     = React.useState('');
+
+  const testConn = async () => {
+    if(!url.trim()) return;
+    setTesting(true); setTM('Connecting…');
+    try {
+      const id = url.match(/\/d\/([a-zA-Z0-9-_]+)/)?.[1];
+      if(!id) throw new Error('Invalid URL');
+      const r = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${id}/values/A1:Z3?key=${GS_KEY}`);
+      if(r.status===403) throw new Error('Sheet is private — share as "Anyone with link → Viewer"');
+      if(!r.ok) throw new Error('Error '+r.status);
+      const d = await r.json();
+      const rows = d.values||[];
+      if(rows.length===0) throw new Error('Sheet is empty');
+      setTM(`✓ Connected — ${rows.length-1} rows, headers: [${rows[0]?.slice(0,5).join(', ')}…]`);
+    } catch(e){ setTM('✗ '+e.message); }
+    setTesting(false);
+  };
+
+  const doExport = async () => {
+    const wb = wbUrl||localStorage.getItem('fas_wb_url');
+    if(!wb){ setExpMsg('ERROR: Save your Apps Script URL in Write-back section first'); return; }
+    if(!students?.length){ setExpMsg('ERROR: No students to export'); return; }
+    setExp(true); setExpPct(0);
+    const BATCH=50; let done=0;
+    for(let i=0;i<students.length;i+=BATCH){
+      const batch=students.slice(i,i+BATCH);
+      try {
+        await fetch(wb,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'bulkUpsert',students:batch})});
+      } catch(e){}
+      done+=batch.length;
+      setExpPct(Math.round(done/students.length*100));
+      setExpMsg(`Exporting… ${done}/${students.length}`);
+      await new Promise(r=>setTimeout(r,350));
+    }
+    setExpMsg(`✓ Done! ${done} students exported. Check your Google Sheet.`);
+    setExp(false); setExpPct(100);
+  };
+
+  return <div className="sync-box">
+    <div style={{display:'flex',alignItems:'center',gap:'.75rem',marginBottom:'1rem',flexWrap:'wrap'}}>
+      <div style={{width:'2.5rem',height:'2.5rem',background:'#d1fae5',borderRadius:'.75rem',display:'flex',alignItems:'center',justifyContent:'center',color:'#047857'}}><Ic.Sheet s={20}/></div>
+      <div>
+        <div style={{fontWeight:900,color:'#0f172a',fontSize:'.9rem'}}>Google Sheets Sync</div>
+        <div style={{fontSize:'.66rem',color:'#64748b'}}>{lastSync?'Last sync: '+lastSync.toLocaleString():'Never synced'}</div>
+      </div>
+    </div>
+
+    <div style={{marginBottom:'.75rem'}}>
+      <label className="lbl">Google Sheets URL</label>
+      <div style={{display:'flex',gap:'.5rem',flexWrap:'wrap'}}>
+        <input className="inp" value={url} onChange={e=>setUrl(e.target.value)} placeholder="https://docs.google.com/spreadsheets/d/…" style={{flex:1,minWidth:'180px'}}/>
+        <button onClick={testConn} disabled={testing} style={{background:'#2563eb',color:'white',border:'none',borderRadius:'.625rem',padding:'0 .875rem',fontWeight:800,fontSize:'.73rem',cursor:'pointer',display:'flex',alignItems:'center',gap:'.3rem',height:'46px'}}>
+          {testing?<Ic.Sync s={13} spin/>:<Ic.Check s={13}/>}Test
+        </button>
+      </div>
+      {testMsg&&<div style={{marginTop:'.4rem',padding:'.4rem .7rem',borderRadius:'.5rem',fontSize:'.73rem',fontWeight:700,background:testMsg.startsWith('✓')?'#ecfdf5':'#fef2f2',color:testMsg.startsWith('✓')?'#047857':'#dc2626',border:`1px solid ${testMsg.startsWith('✓')?'#a7f3d0':'#fecaca'}`}}>{testMsg}</div>}
+    </div>
+
+    {syncResult&&<div style={{marginBottom:'.75rem',padding:'.4rem .7rem',borderRadius:'.5rem',fontSize:'.73rem',fontWeight:700,background:syncResult.ok?'#ecfdf5':'#fef2f2',color:syncResult.ok?'#047857':'#dc2626',border:`1px solid ${syncResult.ok?'#a7f3d0':'#fecaca'}`}}>{syncResult.msg}</div>}
+
+    <button className="btn btn-emerald w-full" style={{justifyContent:'center',padding:'.8rem',fontSize:'.82rem'}} onClick={()=>{localStorage.setItem('fas_gs_url',url);onSync(url);}} disabled={isSyncing}>
+      {isSyncing?<><Ic.Sync s={14} spin/>Syncing…</>:<><Ic.Sync s={14}/>Sync Sheet → Firebase</>}
+    </button>
+    {isSyncing&&<div style={{height:'4px',background:'#a7f3d0',borderRadius:'999px',overflow:'hidden',marginTop:'.75rem'}}><div style={{height:'100%',background:'#059669',borderRadius:'999px',width:'100%',animation:'pulse 1.2s infinite'}}/></div>}
+
+    <div style={{borderTop:'1px solid #a7f3d0',marginTop:'1rem',paddingTop:'1rem'}}>
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:'.625rem',marginBottom:'.625rem'}}>
+        <div>
+          <div style={{fontWeight:900,color:'#0f172a',fontSize:'.82rem'}}>Export Firebase → Sheet</div>
+          <div style={{fontSize:'.65rem',color:'#64748b'}}>{students?.length||0} students in Firebase</div>
+        </div>
+        <button onClick={doExport} disabled={exporting} style={{background:'linear-gradient(135deg,#7c3aed,#6d28d9)',color:'white',border:'none',borderRadius:'.625rem',padding:'.5rem 1rem',fontWeight:800,fontSize:'.73rem',cursor:'pointer',display:'flex',alignItems:'center',gap:'.3rem'}}>
+          {exporting?<><Ic.Sync s={13} spin/>{expPct}%</>:<><Ic.Upload s={13}/>Export</>}
+        </button>
+      </div>
+      {exporting&&<div style={{height:'6px',background:'#ede9fe',borderRadius:'999px',overflow:'hidden',marginBottom:'.4rem'}}><div style={{height:'100%',background:'#7c3aed',borderRadius:'999px',width:expPct+'%',transition:'width .3s'}}/></div>}
+      {expMsg&&<div style={{fontSize:'.73rem',fontWeight:700,padding:'.4rem .7rem',borderRadius:'.5rem',background:expMsg.startsWith('✓')?'#ecfdf5':expMsg.startsWith('ERROR:')?'#fef2f2':'#f5f3ff',color:expMsg.startsWith('✓')?'#047857':expMsg.startsWith('ERROR:')?'#dc2626':'#6d28d9',border:`1px solid ${expMsg.startsWith('✓')?'#a7f3d0':expMsg.startsWith('ERROR:')?'#fecaca':'#ddd6fe'}`}}>{expMsg}</div>}
+    </div>
+
+    <div style={{borderTop:'1px solid #a7f3d0',marginTop:'1rem',paddingTop:'.875rem'}}>
+      <div style={{fontWeight:900,color:'#7c2d12',fontSize:'.82rem',marginBottom:'.4rem'}}>✏️ Apps Script Write-back URL</div>
+      <div style={{display:'flex',gap:'.5rem'}}>
+        <input className="inp" value={wbUrl} onChange={e=>setWbUrl(e.target.value)} placeholder="https://script.google.com/macros/s/…/exec" style={{fontSize:'.78rem'}}/>
+        <button onClick={()=>{localStorage.setItem('fas_wb_url',wbUrl);alert('Saved!');}} style={{background:'#ea580c',color:'white',border:'none',borderRadius:'.625rem',padding:'0 .875rem',fontWeight:800,fontSize:'.73rem',cursor:'pointer',height:'46px',whiteSpace:'nowrap'}}>Save</button>
+      </div>
+    </div>
+  </div>;
+};
+
+// ── Admin Dashboard ───────────────────────────────────────
+const AdminView = ({students,selYear,grades,clubs,houses,years,onAdd,onUpdate,onDelete,onDeleteCat,onSetGrades,onSetClubs,onSetHouses,onSetYears,onPublicView,isSyncing,lastSync,syncResult,onSync}) => {
+  const [tab,setTab]       = React.useState('students');
+  const [modal,setModal]   = React.useState(false);
+  const [editing,setEditing]= React.useState(null);
+  const [form,setForm]     = React.useState({});
+  const [search,setSearch] = React.useState('');
+  const [sel,setSel]       = React.useState([]);
+  const [conf,setConf]     = React.useState(null); // {type,id,name,catType}
+  const [catN,setCatN]     = React.useState('');
+  const [catT,setCatT]     = React.useState('');
+  const [editCat,setEditCat]= React.useState(null);
+  const fileRef = React.useRef();
+
+  const filtered = React.useMemo(()=>{
+    let base=students.filter(s=>String(s.academicYear)===String(selYear));
+    if(search.trim()){const t=search.toLowerCase();base=base.filter(s=>s.name.toLowerCase().includes(t)||s.indexNo.toLowerCase().includes(t)||(s.idNo&&s.idNo.toLowerCase().includes(t)));}
+    return base;
+  },[students,selYear,search]);
+
+  const openAdd  = ()=>{setEditing(null);setForm({gender:'Male',academicYear:selYear});setModal(true);};
+  const openEdit = s=>{setEditing(s);setForm({...s});setModal(true);};
+
+  const submitStu = e=>{
+    e.preventDefault();
+    const photo=form.photoUrl||`https://ui-avatars.com/api/?name=${encodeURIComponent(form.name||'S')}&background=random`;
+    if(editing) onUpdate({...form,photoUrl:photo});
+    else onAdd({...form,photoUrl:photo,id:Date.now().toString()});
+    setModal(false);setEditing(null);setForm({});
+  };
+
+  const submitCat = e=>{
+    e.preventDefault();
+    const n=catN.trim(); if(!n) return;
+    if(tab==='classes') onSetGrades(editCat?grades.map(g=>g.name===editCat?{name:n,teacher:catT}:g):[...grades,{name:n,teacher:catT}]);
+    else if(tab==='clubs') onSetClubs(editCat?clubs.map(c=>c.name===editCat?{name:n,teacher:catT}:c):[...clubs,{name:n,teacher:catT}]);
+    else if(tab==='houses') onSetHouses(editCat?houses.map(h=>h.name===editCat?{name:n,teacher:catT}:h):[...houses,{name:n,teacher:catT}]);
+    else if(tab==='years') onSetYears(editCat?years.map(y=>y===editCat?n:y):[...years,n].sort());
+    setCatN('');setCatT('');setEditCat(null);
+  };
+
+  const doDelete = async ()=>{
+    const c=conf; setConf(null);
+    if(c.type==='bulk'){for(const id of c.ids) await onDelete(id); setSel([]);}
+    else if(c.catType) await onDeleteCat(c.catType,c.id);
+    else await onDelete(c.id);
+  };
+
+  const catList = tab==='classes'?grades:tab==='clubs'?clubs:tab==='houses'?houses:tab==='years'?years.map(y=>({name:y,teacher:''})):[];
+
+  return <div style={{paddingBottom:'5rem'}}>
+    {conf&&<ConfirmDel
+      title={conf.type==='bulk'?`Delete ${conf.ids.length} Students`:'Confirm Delete'}
+      msg={conf.type==='bulk'?`Permanently delete ${conf.ids.length} selected students?`:`Remove "${conf.name}"? Cannot be undone.`}
+      onConfirm={doDelete} onCancel={()=>setConf(null)}/>}
+
+
+
+    {/* Header */}
+    <div className="card-xl" style={{padding:'1.25rem',marginBottom:'1rem'}}>
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:'.75rem',marginBottom:'1rem'}}>
+        <div>
+          <h2 style={{fontSize:'1.3rem',fontWeight:900,color:'#0f172a'}}>Admin Console</h2>
+          <p style={{fontSize:'.65rem',color:'#94a3b8',fontWeight:800,textTransform:'uppercase',letterSpacing:'.06em'}}>{selYear} Academic Registry</p>
+        </div>
+        <div style={{display:'flex',gap:'.5rem',flexWrap:'wrap'}}>
+          <button className="btn btn-emerald btn-sm" onClick={onPublicView}><Ic.Users s={14}/>Public View</button>
+          <button className="btn btn-indigo btn-sm" onClick={openAdd}><Ic.Plus s={14}/>Enroll Student</button>
+        </div>
+      </div>
+      <SheetsSync students={students} isSyncing={isSyncing} lastSync={lastSync} syncResult={syncResult} onSync={onSync}/>
+    </div>
+
+    {/* Tabs */}
+    <div className="tab-bar" style={{marginBottom:'1rem'}}>
+      {[['students','Students'],['classes','Classes'],['clubs','Clubs'],['houses','Houses'],['years','Years']].map(([id,l])=>(
+        <button key={id} className={`tab-btn${tab===id?(id==='students'?' tab-indigo':' tab-emerald'):''}`}
+          onClick={()=>{setTab(id);setEditCat(null);setCatN('');setCatT('');}}>
+          {l}
+        </button>
+      ))}
+    </div>
+
+    {tab==='students' ? <>
+      {/* Search + select bar */}
+      <div style={{position:'sticky',top:'60px',zIndex:50,paddingBottom:'.4rem',marginBottom:'.4rem'}}>
+        <div className="card" style={{padding:'.75rem .875rem'}}>
+          <div style={{marginBottom:'.5rem'}}><SearchBar value={search} onChange={setSearch} placeholder="Search name, index or ID…"/></div>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:'.5rem',flexWrap:'wrap'}}>
+            <label style={{display:'flex',alignItems:'center',gap:'.4rem',cursor:'pointer',fontWeight:700,fontSize:'.78rem',color:'#4f46e5',userSelect:'none'}}>
+              <input type="checkbox" checked={filtered.length>0&&sel.length===filtered.length}
+                onChange={e=>setSel(e.target.checked?filtered.map(s=>s.id):[])}
+                style={{width:'1rem',height:'1rem',accentColor:'#4f46e5',cursor:'pointer'}}/>
+              {filtered.length>0&&sel.length===filtered.length?'Deselect All':'Select All'}
+            </label>
+            <div style={{display:'flex',alignItems:'center',gap:'.625rem'}}>
+              {sel.length>0&&<button onClick={()=>setConf({type:'bulk',ids:[...sel]})}
+                style={{background:'#fef2f2',color:'#dc2626',border:'1px solid #fecaca',borderRadius:'.5rem',padding:'.3rem .75rem',fontWeight:800,fontSize:'.72rem',cursor:'pointer',display:'flex',alignItems:'center',gap:'.3rem'}}>
+                <Ic.Trash s={12}/>Delete {sel.length}
+              </button>}
+              <span style={{fontSize:'.72rem',fontWeight:700,color:'#94a3b8'}}>{filtered.length} students</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Student table */}
+      <div className="card-xl" style={{overflow:'hidden'}}>
+        <div className="tbl-wrap"><table>
+          <thead><tr style={{background:'#0f172a'}}>
+            <th style={{color:'#64748b',width:'2.25rem'}}></th>
+            <th style={{color:'#64748b'}}>Student</th>
+            <th style={{color:'#64748b'}}>Index No</th>
+            <th style={{color:'#64748b'}}>Grade</th>
+            <th style={{color:'#64748b'}}>Sex</th>
+            <th style={{color:'#64748b',textAlign:'right',minWidth:'90px'}}>Actions</th>
+          </tr></thead>
+          <tbody>
+            {filtered.length>0 ? filtered.map(s=>(
+              <tr key={s.id} style={{background:sel.includes(s.id)?'#eef2ff':''}}>
+                <td><input type="checkbox" checked={sel.includes(s.id)}
+                  onChange={e=>setSel(p=>e.target.checked?[...p,s.id]:p.filter(i=>i!==s.id))}
+                  style={{width:'1rem',height:'1rem',accentColor:'#4f46e5',cursor:'pointer'}}/></td>
+                <td><div style={{display:'flex',alignItems:'center',gap:'.5rem'}}>
+                  <img src={s.photoUrl||`https://ui-avatars.com/api/?name=${encodeURIComponent(s.name)}&background=random`}
+                    style={{width:'2rem',height:'2rem',borderRadius:'.5rem',objectFit:'cover',flexShrink:0}}/>
+                  <span style={{fontWeight:800,color:'#0f172a'}}>{s.name}</span>
+                </div></td>
+                <td style={{fontFamily:'monospace',fontWeight:700,color:'#4f46e5',fontSize:'.82rem'}}>{s.indexNo}</td>
+                <td style={{color:'#475569',fontSize:'.82rem'}}>{s.grade||'—'}</td>
+                <td><span className={`badge ${s.gender==='Male'?'badge-blue':'badge-pink'}`}>{s.gender}</span></td>
+                <td style={{textAlign:'right'}}>
+                  <div style={{display:'inline-flex',gap:'.3rem'}}>
+                    <button className="btn-icon btn-edit" onClick={()=>openEdit(s)} title="Edit"><Ic.Edit/></button>
+                    <button className="btn-icon btn-del" onClick={()=>setConf({id:s.id,name:s.name})} title="Delete"><Ic.Trash/></button>
+                  </div>
+                </td>
+              </tr>
+            )) : <tr><td colSpan={6} style={{textAlign:'center',padding:'2.5rem',color:'#cbd5e1',fontWeight:800,textTransform:'uppercase',fontSize:'.72rem'}}>
+              {search?'No students match your search':`No students enrolled for ${selYear}`}
+            </td></tr>}
+          </tbody>
+        </table></div>
+      </div>
+    </> : <>
+      {/* Category form */}
+      <div className="card-xl" style={{padding:'1.125rem',marginBottom:'1rem'}}>
+        <div style={{fontWeight:900,fontSize:'.875rem',color:'#0f172a',marginBottom:'.75rem'}}>
+          {editCat?'Edit':'Add'} {tab.slice(0,-1)[0].toUpperCase()+tab.slice(1,-1)}
+        </div>
+        <form onSubmit={submitCat} style={{display:'flex',gap:'.625rem',flexWrap:'wrap',alignItems:'flex-end'}}>
+          <div style={{flex:1,minWidth:'150px'}}><label className="lbl">Name</label><input className="inp" value={catN} onChange={e=>setCatN(e.target.value)} placeholder="Name…" required/></div>
+          {tab!=='years'&&<div style={{flex:1,minWidth:'150px'}}><label className="lbl">Teacher</label><input className="inp" value={catT} onChange={e=>setCatT(e.target.value)} placeholder="Teacher name…"/></div>}
+          <div style={{display:'flex',gap:'.4rem'}}>
+            <button type="submit" className="btn btn-emerald btn-sm">{editCat?'Update':'Create'}</button>
+            {editCat&&<button type="button" className="btn btn-ghost btn-sm" onClick={()=>{setEditCat(null);setCatN('');setCatT('');}}>Cancel</button>}
+          </div>
+        </form>
+      </div>
+      <div className="card-xl" style={{overflow:'hidden'}}>
+        <div className="tbl-wrap"><table>
+          <thead><tr style={{background:'#059669'}}>
+            <th style={{color:'white'}}>Name</th>
+            {tab!=='years'&&<th style={{color:'white'}}>Teacher</th>}
+            <th style={{color:'white',textAlign:'right',minWidth:'90px'}}>Actions</th>
+          </tr></thead>
+          <tbody>
+            {catList.length>0 ? catList.map((item,i)=>(
+              <tr key={i}>
+                <td style={{fontWeight:800,color:'#0f172a'}}>{item.name}</td>
+                {tab!=='years'&&<td style={{color:'#64748b',fontStyle:'italic'}}>{item.teacher||'Unassigned'}</td>}
+                <td style={{textAlign:'right'}}>
+                  <div style={{display:'inline-flex',gap:'.3rem'}}>
+                    <button className="btn-icon btn-edit" onClick={()=>{setEditCat(item.name);setCatN(item.name);setCatT(item.teacher||'');}}><Ic.Edit/></button>
+                    <button className="btn-icon btn-del" onClick={()=>setConf({catType:tab,id:item.name,name:item.name})}><Ic.Trash/></button>
+                  </div>
+                </td>
+              </tr>
+            )) : <tr><td colSpan={3} style={{textAlign:'center',padding:'2rem',color:'#cbd5e1',fontWeight:800,textTransform:'uppercase',fontSize:'.72rem'}}>No entries yet</td></tr>}
+          </tbody>
+        </table></div>
+      </div>
+    </>}
+
+    {/* Student modal */}
+    {modal&&<div className="modal-bg">
+      <div className="modal-box" style={{overflowY:'auto',maxHeight:'90vh'}}>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'1.25rem'}}>
+          <h3 style={{fontSize:'1.2rem',fontWeight:900,color:'#0f172a'}}>{editing?'Edit Student':'New Student'}</h3>
+          <button className="btn btn-ghost btn-icon" onClick={()=>setModal(false)}><Ic.X/></button>
+        </div>
+        <form onSubmit={submitStu}>
+          <div style={{display:'flex',justifyContent:'center',marginBottom:'1rem'}}>
+            <div style={{position:'relative',cursor:'pointer'}} onClick={()=>fileRef.current?.click()}>
+              <img src={form.photoUrl||`https://ui-avatars.com/api/?name=${encodeURIComponent(form.name||'S')}&background=random`}
+                style={{width:'5.5rem',height:'5.5rem',borderRadius:'1rem',objectFit:'cover',border:'2px solid #e2e8f0'}}/>
+              <div style={{position:'absolute',bottom:'.2rem',right:'.2rem',background:'#4f46e5',borderRadius:'.375rem',padding:'.2rem',color:'white'}}><Ic.Edit s={11}/></div>
+            </div>
+            <input type="file" ref={fileRef} accept="image/*" className="hidden" onChange={e=>{const f=e.target.files?.[0];if(f){const r=new FileReader();r.onloadend=()=>setForm({...form,photoUrl:r.result});r.readAsDataURL(f);}}}/>
+          </div>
+          <div className="form-grid">
+            <TxtIn label="Index Number" value={form.indexNo} onChange={v=>setForm({...form,indexNo:v})} placeholder="STD/25/001" required/>
+            <TxtIn label="Full Name" value={form.name} onChange={v=>setForm({...form,name:v})} placeholder="Legal name" required/>
+            <Field label="Academic Year">
+              <select className="inp" value={form.academicYear||selYear} onChange={e=>setForm({...form,academicYear:e.target.value})} style={{cursor:'pointer'}}>
+                {years.length>0?years.map(y=><option key={y} value={y}>{y}</option>):<option value={selYear}>{selYear}</option>}
+              </select>
+            </Field>
+            <Field label="Grade / Class">
+              <select className="inp" value={form.grade||''} onChange={e=>setForm({...form,grade:e.target.value})} style={{cursor:'pointer'}}>
+                <option value="">Select grade…</option>
+                {grades.map(g=><option key={g.name} value={g.name}>{g.name}</option>)}
+              </select>
+            </Field>
+            <TxtIn label="National ID" value={form.idNo} onChange={v=>setForm({...form,idNo:v})} placeholder="NIC / Reg No"/>
+            <SelIn label="Gender" value={form.gender} onChange={v=>setForm({...form,gender:v})} options={['Male','Female','Other']}/>
+            <Field label="Club">
+              <select className="inp" value={form.club||''} onChange={e=>setForm({...form,club:e.target.value})} style={{cursor:'pointer'}}>
+                <option value="">None</option>
+                {clubs.map(c=><option key={c.name} value={c.name}>{c.name}</option>)}
+              </select>
+            </Field>
+            <Field label="House">
+              <select className="inp" value={form.house||''} onChange={e=>setForm({...form,house:e.target.value})} style={{cursor:'pointer'}}>
+                <option value="">None</option>
+                {houses.map(h=><option key={h.name} value={h.name}>{h.name}</option>)}
+              </select>
+            </Field>
+            <TxtIn label="Date of Birth" value={form.dob} onChange={v=>setForm({...form,dob:v})} type="date"/>
+            <TxtIn label="Email" value={form.email} onChange={v=>setForm({...form,email:v})} type="email" placeholder="student@school.edu"/>
+            <TxtIn label="Phone" value={form.phone} onChange={v=>setForm({...form,phone:v})} placeholder="+960 xxx xxxx"/>
+            <TxtIn label="Parent / Guardian" value={form.parentName} onChange={v=>setForm({...form,parentName:v})} placeholder="Parent name"/>
+            <div className="col2">
+              <label className="lbl">Address</label>
+              <textarea className="inp" value={form.address||''} onChange={e=>setForm({...form,address:e.target.value})} placeholder="Permanent address" style={{minHeight:'72px',resize:'vertical'}}/>
+            </div>
+          </div>
+          <button type="submit" className="btn btn-indigo w-full" style={{justifyContent:'center',padding:'.8rem',marginTop:'1rem',fontSize:'.78rem',textTransform:'uppercase',letterSpacing:'.08em'}}>
+            {editing?'Save Changes':'Register Student'}
+          </button>
+        </form>
+      </div>
+    </div>}
+  </div>;
+};
+
+// ── Super Admin ───────────────────────────────────────────
+const SuperView = ({logs,onSetAdminPass,onSetSuperPass,onWipe,onRestore,students,grades,clubs,houses,years,selYear,showToast}) => {
+  const [newAP,setNAP]    = React.useState('');
+  const [newSP,setNSP]    = React.useState('');
+  const [wipeOpen,setWO]  = React.useState(false);
+  const [wipeText,setWT]  = React.useState('');
+  const [wiping,setWiping]= React.useState(false);
+  const [restoreD,setRD]  = React.useState(null);
+  const [delS,setDelS]    = React.useState(null);
+  const [customSt,setCS]  = React.useState(()=>{try{const s=localStorage.getItem('fas_cs');return s?JSON.parse(s):null;}catch{return null;}});
+  const [editSt,setESt]   = React.useState(false);
+  const [stTmp,setSTmp]   = React.useState({total:0,boys:0,girls:0});
+  const fileRef = React.useRef();
+
+  const cur = students.filter(s=>String(s.academicYear)===String(selYear));
+  const live = {total:cur.length,boys:cur.filter(s=>s.gender==='Male').length,girls:cur.filter(s=>s.gender==='Female').length};
+  const disp = customSt||live;
+
+  const exportBk = ()=>{
+    const b=new Blob([JSON.stringify({students,grades,clubs,houses,years},null,2)],{type:'application/json'});
+    const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download=`backup_${new Date().toISOString().split('T')[0]}.json`;a.click();URL.revokeObjectURL(u);
+    showToast('Backup exported','success');
+  };
+  const importBk = e=>{
+    const f=e.target.files?.[0];if(!f)return;
+    const r=new FileReader();r.onload=ev=>{try{const d=JSON.parse(ev.target.result);if(d.students)setRD(d);else showToast('Invalid backup','error');}catch{showToast('Read failed','error');}};
+    r.readAsText(f);if(fileRef.current)fileRef.current.value='';
+  };
+
+  const doWipe = async ()=>{
+    setWiping(true);
+    try {
+      await onWipe();
+      setWO(false);setWT('');
+      showToast('All data wiped','success');
+    } catch(e){ showToast('Wipe failed: '+e.message,'error'); }
+    setWiping(false);
+  };
+
+  const deleteSingleStudent = async id=>{
+    try {
+      await fbDEL('students/'+id);
+      showToast('Student deleted','success');
+    } catch(e){ showToast('Delete failed','error'); }
+    setDelS(null);
+  };
+
+  return <div className="super-bg">
+    {wipeOpen&&<div className="wipe-bg">
+      <div className="wipe-box">
+        <div style={{display:'flex',alignItems:'center',gap:'.875rem',marginBottom:'1.25rem',paddingBottom:'1rem',borderBottom:'1px solid rgba(255,255,255,.1)'}}>
+          <div style={{width:'3rem',height:'3rem',background:'rgba(220,38,38,.2)',borderRadius:'.875rem',display:'flex',alignItems:'center',justifyContent:'center',color:'#f87171'}}><Ic.Alert s={22}/></div>
+          <div>
+            <div style={{color:'white',fontWeight:900,fontSize:'1.1rem'}}>Wipe All Data</div>
+            <div style={{color:'#94a3b8',fontSize:'.78rem'}}>Permanently deletes all Firebase data</div>
+          </div>
+          <button onClick={()=>setWO(false)} style={{marginLeft:'auto',background:'rgba(255,255,255,.08)',border:'none',borderRadius:'.5rem',padding:'.4rem',cursor:'pointer',color:'#94a3b8',display:'flex'}}><Ic.X s={16}/></button>
+        </div>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'.625rem',marginBottom:'1.125rem'}}>
+          {[['Total',students.length],['This Year',cur.length],['Year',selYear]].map(([l,v])=>(
+            <div key={l} style={{background:'rgba(255,255,255,.06)',border:'1px solid rgba(255,255,255,.1)',borderRadius:'.75rem',padding:'.75rem',textAlign:'center'}}>
+              <div style={{fontSize:'1.4rem',fontWeight:900,color:'white'}}>{v}</div>
+              <div style={{fontSize:'.6rem',fontWeight:800,textTransform:'uppercase',letterSpacing:'.08em',color:'#94a3b8'}}>{l}</div>
+            </div>
+          ))}
+        </div>
+        <div style={{marginBottom:'1rem'}}>
+          <div style={{fontSize:'.68rem',fontWeight:800,color:'#f87171',textTransform:'uppercase',letterSpacing:'.08em',marginBottom:'.4rem',textAlign:'center'}}>Type DELETE ALL DATA to confirm</div>
+          <input className="wipe-inp" value={wipeText} onChange={e=>setWT(e.target.value.toUpperCase())} placeholder="DELETE ALL DATA" autoFocus/>
+        </div>
+        <div style={{display:'flex',gap:'.625rem'}}>
+          <button onClick={()=>setWO(false)} style={{flex:1,padding:'.8rem',background:'rgba(255,255,255,.07)',border:'1px solid rgba(255,255,255,.1)',borderRadius:'.75rem',color:'#94a3b8',fontWeight:800,cursor:'pointer',fontSize:'.75rem',textTransform:'uppercase'}}>Cancel</button>
+          <button disabled={wipeText!=='DELETE ALL DATA'||wiping} onClick={doWipe}
+            style={{flex:1,padding:'.8rem',background:wipeText==='DELETE ALL DATA'?'linear-gradient(135deg,#dc2626,#991b1b)':'rgba(220,38,38,.25)',border:'none',borderRadius:'.75rem',color:wipeText==='DELETE ALL DATA'?'white':'rgba(255,255,255,.3)',fontWeight:800,cursor:wipeText==='DELETE ALL DATA'?'pointer':'not-allowed',fontSize:'.75rem',textTransform:'uppercase',display:'flex',alignItems:'center',justifyContent:'center',gap:'.4rem'}}>
+            {wiping?<><div style={{width:'13px',height:'13px',border:'2px solid white',borderTopColor:'transparent',borderRadius:'50%',animation:'spin .8s linear infinite'}}/>Wiping…</>:<><Ic.Trash s={13}/>Wipe All</>}
+          </button>
+        </div>
+      </div>
+    </div>}
+
+    {delS&&<div className="modal-bg">
+      <div className="modal-box modal-sm" style={{textAlign:'center'}}>
+        <div style={{width:'3rem',height:'3rem',background:'#fef2f2',borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto .75rem',color:'#dc2626'}}><Ic.Trash s={20}/></div>
+        <h3 style={{fontSize:'1rem',fontWeight:900,color:'#0f172a',marginBottom:'.4rem'}}>Delete Student</h3>
+        <p style={{color:'#64748b',fontSize:'.85rem',marginBottom:'1.25rem'}}>Remove <strong>{delS.name}</strong>? Cannot be undone.</p>
+        <div style={{display:'flex',gap:'.625rem'}}>
+          <button className="btn btn-ghost w-full" style={{justifyContent:'center',padding:'.7rem'}} onClick={()=>setDelS(null)}>Cancel</button>
+          <button className="btn btn-red w-full" style={{justifyContent:'center',padding:'.7rem'}} onClick={()=>deleteSingleStudent(delS.id)}><Ic.Trash s={13}/>Delete</button>
+        </div>
+      </div>
+    </div>}
+
+    {restoreD&&<div className="modal-bg">
+      <div className="modal-box modal-sm" style={{textAlign:'center'}}>
+        <h3 style={{fontSize:'1rem',fontWeight:900,color:'#0f172a',marginBottom:'.4rem'}}>Restore Database</h3>
+        <p style={{color:'#64748b',fontSize:'.85rem',marginBottom:'1.25rem'}}>Overwrite all data with <strong>{restoreD.students?.length||0} students</strong> from backup?</p>
+        <div style={{display:'flex',gap:'.625rem'}}>
+          <button className="btn btn-ghost w-full" style={{justifyContent:'center',padding:'.7rem'}} onClick={()=>setRD(null)}>Cancel</button>
+          <button className="btn btn-indigo w-full" style={{justifyContent:'center',padding:'.7rem'}} onClick={()=>{onRestore(restoreD);setRD(null);showToast('Restored','success');}}>Restore</button>
+        </div>
+      </div>
+    </div>}
+
+    <input type="file" ref={fileRef} className="hidden" accept=".json" onChange={importBk}/>
+
+    {/* Header */}
+    <div className="super-card" style={{padding:'1.25rem',marginBottom:'1rem',display:'flex',alignItems:'center',gap:.875+'rem',flexWrap:'wrap'}}>
+      <div style={{width:'3rem',height:'3rem',background:'linear-gradient(135deg,#6366f1,#4f46e5)',borderRadius:'.875rem',display:'flex',alignItems:'center',justifyContent:'center',color:'white'}}><Ic.Lock s={22}/></div>
+      <div>
+        <div style={{color:'white',fontWeight:900,fontSize:'1.2rem'}}>Super Admin</div>
+        <div style={{display:'flex',alignItems:'center',gap:'.4rem'}}>
+          <span className="live-badge"><span className="live-dot"/>Live</span>
+          <span style={{color:'rgba(255,255,255,.4)',fontSize:'.68rem',fontWeight:700}}>{students.length} students total</span>
+        </div>
+      </div>
+    </div>
+
+    {/* Stats */}
+    <div className="super-card" style={{padding:'1.25rem',marginBottom:'1rem'}}>
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:'.5rem',marginBottom:'.875rem'}}>
+        <div style={{color:'white',fontWeight:900,fontSize:'.9rem'}}>Statistics {customSt?'(custom)':'(live)'}</div>
+        <div style={{display:'flex',gap:'.4rem'}}>
+          {customSt&&<button onClick={async ()=>{
+    setCS(null);
+    // ONLY clear studentstat-968de Firebase — Student Statistics file reverts to live
+    try {
+        await fetch('https://studentstat-968de-default-rtdb.firebaseio.com/custom_stats.json',{
+            method:'PUT',
+            headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({active:false})
+        });
+    } catch(e){}
+    showToast('Reset to live statistics','success');
+}} style={{background:'rgba(16,185,129,.15)',border:'1px solid rgba(16,185,129,.3)',borderRadius:'.5rem',padding:'.3rem .75rem',color:'#10b981',fontSize:'.68rem',fontWeight:800,cursor:'pointer'}}>Use Live</button>}
+          <button onClick={()=>{setSTmp(disp);setESt(!editSt);}} style={{background:'rgba(255,255,255,.1)',border:'1px solid rgba(255,255,255,.15)',borderRadius:'.5rem',padding:'.3rem .75rem',color:'white',fontSize:'.68rem',fontWeight:800,cursor:'pointer'}}>{editSt?'Cancel':'Edit'}</button>
+        </div>
+      </div>
+      {!editSt ? <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'.875rem',textAlign:'center'}}>
+        {[['Total',disp.total,'#a5b4fc'],['Boys',disp.boys,'#93c5fd'],['Girls',disp.girls,'#f9a8d4']].map(([l,v,c])=>(
+          <div key={l}><div style={{fontSize:'2.6rem',fontWeight:900,color:c,lineHeight:1}}>{v}</div><div style={{fontSize:'.6rem',fontWeight:800,textTransform:'uppercase',letterSpacing:'.1em',color:'rgba(255,255,255,.4)'}}>{l}</div></div>
+        ))}
+      </div> : <div>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'.75rem',marginBottom:'.875rem'}}>
+          {[['Total','total'],['Boys','boys'],['Girls','girls']].map(([l,k])=>(
+            <div key={k}><label style={{display:'block',fontSize:'.62rem',fontWeight:800,color:'rgba(255,255,255,.5)',textTransform:'uppercase',letterSpacing:'.1em',marginBottom:'.3rem'}}>{l}</label>
+              <input className="super-inp" type="number" min="0" value={stTmp[k]} onChange={e=>setSTmp({...stTmp,[k]:parseInt(e.target.value)||0})}/></div>
+          ))}
+        </div>
+        <button onClick={async ()=>{
+            setCS(stTmp);
+            // ONLY write to studentstat-968de Firebase — Student Statistics file reads from here
+            // Does NOT affect public portal or localStorage
+            try {
+                await fetch('https://studentstat-968de-default-rtdb.firebaseio.com/custom_stats.json',{
+                    method:'PUT',
+                    headers:{'Content-Type':'application/json'},
+                    body:JSON.stringify({
+                        total: stTmp.total,
+                        boys:  stTmp.boys,
+                        girls: stTmp.girls,
+                        active: true,
+                        updatedAt: new Date().toISOString()
+                    })
+                });
+                showToast('Stats saved — Student Statistics display updated','success');
+            } catch(e){
+                showToast('Save failed: '+e.message,'error');
+            }
+            setESt(false);
+        }}
+          style={{background:'linear-gradient(135deg,#059669,#047857)',border:'none',borderRadius:'.625rem',padding:'.65rem 1.25rem',color:'white',fontWeight:800,fontSize:'.75rem',cursor:'pointer',display:'flex',alignItems:'center',gap:'.35rem'}}>
+          <Ic.Save/>Save Stats
+        </button>
+      </div>}
+    </div>
+
+    {/* Delete students list */}
+    <div style={{background:'rgba(220,38,38,.08)',border:'1px solid rgba(220,38,38,.2)',borderRadius:'1.25rem',padding:'1.25rem',marginBottom:'1rem'}}>
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:'.625rem',marginBottom:'.875rem'}}>
+        <div>
+          <div style={{color:'#f87171',fontWeight:900,fontSize:'.9rem'}}>Students — {selYear}</div>
+          <div style={{color:'rgba(248,113,113,.6)',fontSize:'.72rem'}}>{cur.length} students</div>
+        </div>
+        <button onClick={()=>setWO(true)} style={{background:'linear-gradient(135deg,#dc2626,#991b1b)',color:'white',border:'none',borderRadius:'.75rem',padding:'.7rem 1.25rem',fontSize:'.72rem',fontWeight:800,textTransform:'uppercase',letterSpacing:'.06em',cursor:'pointer',display:'flex',alignItems:'center',gap:'.4rem'}}>
+          <Ic.Trash s={13}/>Wipe All Data
+        </button>
+      </div>
+      {cur.length===0 ? <div style={{textAlign:'center',padding:'1.25rem',color:'rgba(255,255,255,.25)',fontSize:'.72rem',fontWeight:800,textTransform:'uppercase'}}>No students in {selYear}</div>
+      : <div style={{maxHeight:'280px',overflowY:'auto',display:'flex',flexDirection:'column',gap:'.35rem'}}>
+        {cur.map(s=><div key={s.id} className="del-row">
+          <div style={{display:'flex',alignItems:'center',gap:'.5rem',minWidth:0}}>
+            <img src={s.photoUrl||`https://ui-avatars.com/api/?name=${encodeURIComponent(s.name)}&background=random`} style={{width:'1.875rem',height:'1.875rem',borderRadius:'.4rem',objectFit:'cover',flexShrink:0}}/>
+            <div style={{minWidth:0}}>
+              <div style={{color:'white',fontWeight:800,fontSize:'.82rem',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{s.name}</div>
+              <div style={{color:'rgba(255,255,255,.4)',fontSize:'.68rem',fontFamily:'monospace'}}>{s.indexNo}</div>
+            </div>
+          </div>
+          <button onClick={()=>setDelS(s)} style={{background:'rgba(220,38,38,.2)',color:'#f87171',border:'1px solid rgba(220,38,38,.3)',borderRadius:'.4rem',padding:'.3rem .625rem',fontSize:'.68rem',fontWeight:800,textTransform:'uppercase',cursor:'pointer',whiteSpace:'nowrap',flexShrink:0}}>Delete</button>
+        </div>)}
+      </div>}
+    </div>
+
+    {/* Credentials + Audit */}
+    <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(260px,1fr))',gap:'1rem',marginBottom:'1rem'}}>
+      <div className="super-card" style={{padding:'1.25rem'}}>
+        <div style={{display:'flex',alignItems:'center',gap:'.5rem',marginBottom:'1rem'}}><Ic.Key s={18}/><span style={{color:'white',fontWeight:900,fontSize:'.9rem'}}>Credentials</span></div>
+        {[['Admin Key',newAP,setNAP,onSetAdminPass],['Super Key',newSP,setNSP,onSetSuperPass]].map(([l,v,sv,fn])=>(
+          <div key={l} style={{marginBottom:'.875rem'}}>
+            <div style={{color:'rgba(255,255,255,.45)',fontSize:'.62rem',fontWeight:800,textTransform:'uppercase',letterSpacing:'.1em',marginBottom:'.3rem'}}>{l}</div>
+            <div style={{display:'flex',gap:'.4rem'}}>
+              <input className="super-inp" type="text" value={v} onChange={e=>sv(e.target.value)} placeholder="New key…" style={{flex:1,fontSize:'.85rem'}}/>
+              <button onClick={()=>{if(v){fn(v);sv('');showToast(l+' updated','success');}}} style={{background:'linear-gradient(135deg,#6366f1,#4f46e5)',border:'none',borderRadius:'.5rem',padding:'0 .75rem',color:'white',fontWeight:800,fontSize:'.72rem',cursor:'pointer',height:'44px'}}>Save</button>
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="super-card" style={{padding:'1.25rem'}}>
+        <div style={{display:'flex',alignItems:'center',gap:'.5rem',marginBottom:'1rem'}}><Ic.Activity s={18}/><span style={{color:'white',fontWeight:900,fontSize:'.9rem'}}>Audit Log</span></div>
+        <div style={{maxHeight:'200px',overflowY:'auto',display:'flex',flexDirection:'column',gap:'.4rem'}}>
+          {logs.length===0 ? <div style={{textAlign:'center',padding:'1.5rem',color:'rgba(255,255,255,.2)',fontSize:'.72rem',fontWeight:800,textTransform:'uppercase'}}>No logs yet</div>
+          : logs.map(log=><div key={log.id} style={{background:'rgba(255,255,255,.04)',border:'1px solid rgba(255,255,255,.07)',borderRadius:'.625rem',padding:'.6rem .75rem'}}>
+            <div style={{color:'white',fontWeight:700,fontSize:'.78rem'}}>{log.action}</div>
+            <div style={{color:'rgba(255,255,255,.35)',fontSize:'.62rem',marginTop:'.2rem'}}>{new Date(log.timestamp).toLocaleString()}</div>
+          </div>)}
+        </div>
+      </div>
+    </div>
+
+    {/* Backup */}
+    <div className="super-card" style={{padding:'1.25rem',display:'flex',alignItems:'center',flexWrap:'wrap',gap:.875+'rem',justifyContent:'space-between'}}>
+      <div><div style={{color:'white',fontWeight:900,fontSize:'.875rem'}}>Backup & Restore</div><div style={{color:'rgba(255,255,255,.4)',fontSize:'.72rem'}}>Export or restore full JSON backup</div></div>
+      <div style={{display:'flex',gap:'.5rem',flexWrap:'wrap'}}>
+        <button onClick={exportBk} style={{background:'linear-gradient(135deg,#6366f1,#4f46e5)',border:'none',borderRadius:'.625rem',padding:'.65rem 1.1rem',color:'white',fontWeight:800,fontSize:'.72rem',textTransform:'uppercase',cursor:'pointer',display:'flex',alignItems:'center',gap:'.35rem'}}><Ic.Download s={13}/>Export</button>
+        <button onClick={()=>fileRef.current?.click()} style={{background:'rgba(255,255,255,.08)',border:'1px solid rgba(255,255,255,.15)',borderRadius:'.625rem',padding:'.65rem 1.1rem',color:'white',fontWeight:800,fontSize:'.72rem',textTransform:'uppercase',cursor:'pointer',display:'flex',alignItems:'center',gap:'.35rem'}}><Ic.Upload s={13}/>Restore</button>
+      </div>
+    </div>
+  </div>;
+};
+
+// ── Login ─────────────────────────────────────────────────
+const LoginBox = ({title,value,setValue,onSubmit,icon,dark}) => (
+  <div className={`login-box`} style={{background:dark?'#0f172a':'white',border:`1px solid ${dark?'#1e293b':'#e2e8f0'}`}}>
+    <div style={{display:'flex',flexDirection:'column',alignItems:'center',marginBottom:'1.25rem'}}>
+      <div style={{width:'3.5rem',height:'3.5rem',background:'#4f46e5',borderRadius:'1rem',display:'flex',alignItems:'center',justifyContent:'center',color:'white',marginBottom:'.875rem',boxShadow:'0 8px 20px rgba(79,70,229,.3)'}}>{icon}</div>
+      <h2 style={{fontSize:'1.2rem',fontWeight:900,color:dark?'white':'#0f172a'}}>{title}</h2>
+    </div>
+    <form onSubmit={onSubmit}>
+      <input type="password" value={value} onChange={e=>setValue(e.target.value)} placeholder="Access Key"
+        className={dark?'super-inp':'inp'} style={{textAlign:'center',fontWeight:800,fontSize:'.95rem',marginBottom:'.75rem'}} autoFocus/>
+      <button type="submit" className="btn btn-indigo w-full" style={{justifyContent:'center',padding:'.8rem',fontSize:'.78rem',textTransform:'uppercase',letterSpacing:'.1em'}}>Authenticate</button>
+    </form>
+  </div>
+);
+
+// ── Sidebar ───────────────────────────────────────────────
+const Sidebar = ({selYear,setSelYear,years,stats}) => (
+  <div className="sidebar-col">
+    <div className="card" style={{padding:'1.125rem',marginBottom:'1rem'}}>
+      <div className="lbl" style={{marginBottom:'.4rem'}}>Academic Year</div>
+      <select className="inp" value={selYear} onChange={e=>setSelYear(e.target.value)} style={{cursor:'pointer'}}>
+        {years.map(y=><option key={y} value={y}>{y} Intake</option>)}
+      </select>
+    </div>
+    <div className="card" style={{padding:'1.125rem'}}>
+      <div className="lbl" style={{marginBottom:'.625rem'}}>Student Stats</div>
+      {[['Total Students',stats.total,'st-indigo'],['Boys Enrolled',stats.boys,'st-blue'],['Girls Enrolled',stats.girls,'st-pink']].map(([l,v,c])=>(
+        <div key={l} className={`stat-tile ${c}`} style={{marginBottom:'.625rem'}}>
+          <div style={{fontSize:'.62rem',fontWeight:800,textTransform:'uppercase',letterSpacing:'.08em',opacity:.7,marginBottom:'.25rem'}}>{l}</div>
+          <div style={{fontSize:'1.875rem',fontWeight:900,lineHeight:1}}>{v}</div>
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
+// ── Mobile Drawer ─────────────────────────────────────────
+const Drawer = ({open,onClose,view,setView,selYear,setSelYear,years,stats,isAdmin,isSuper}) => (
+  <>
+    <div className={`drawer-ov${open?' open':''}`} onClick={onClose}/>
+    <div className={`drawer${open?' open':''}`}>
+      <div style={{padding:'1.1rem 1.1rem .875rem',background:'linear-gradient(135deg,#4f46e5,#6366f1)'}}>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'.75rem'}}>
+          <span style={{color:'white',fontWeight:900,fontSize:'1rem'}}>Navigation</span>
+          <button onClick={onClose} style={{background:'rgba(255,255,255,.15)',border:'none',borderRadius:'.4rem',padding:'.3rem',cursor:'pointer',color:'white',display:'flex'}}><Ic.X s={16}/></button>
+        </div>
+        <select value={selYear} onChange={e=>setSelYear(e.target.value)}
+          style={{width:'100%',padding:'.55rem .8rem',background:'rgba(255,255,255,.15)',border:'1px solid rgba(255,255,255,.25)',borderRadius:'.5rem',color:'white',fontWeight:700,fontSize:'.85rem',outline:'none'}}>
+          {years.map(y=><option key={y} value={y} style={{color:'#0f172a'}}>{y} Intake</option>)}
+        </select>
+      </div>
+      <div style={{padding:'.875rem'}}>
+        {[{id:'public',l:'Public Portal',ic:<Ic.Users/>},...(isAdmin||isSuper?[{id:'admin',l:'Admin Console',ic:<Ic.Shield/>}]:[]),...(isSuper?[{id:'super',l:'Super Admin',ic:<Ic.Lock/>}]:[])].map(item=>(
+          <button key={item.id} onClick={()=>{setView(item.id);onClose();}}
+            style={{display:'flex',alignItems:'center',gap:'.5rem',width:'100%',padding:'.75rem',borderRadius:'.5rem',border:'none',background:view===item.id?'#f1f5f9':'none',color:view===item.id?'#4f46e5':'#475569',fontWeight:700,fontSize:'.875rem',cursor:'pointer',textAlign:'left',marginBottom:'.25rem'}}>
+            {item.ic}{item.l}
+          </button>
+        ))}
+        <div style={{marginTop:'.875rem',padding:'.75rem',background:'#f8fafc',borderRadius:'.625rem',border:'1px solid #e2e8f0'}}>
+          <div style={{fontSize:'.65rem',fontWeight:800,color:'#475569',textTransform:'uppercase',letterSpacing:'.08em',marginBottom:'.5rem'}}>Stats ({selYear})</div>
+          {[['Total',stats.total,'#4f46e5'],['Boys',stats.boys,'#2563eb'],['Girls',stats.girls,'#db2777']].map(([l,v,c])=>(
+            <div key={l} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'.35rem 0',borderBottom:'1px solid #f1f5f9'}}>
+              <span style={{fontSize:'.78rem',color:'#64748b',fontWeight:600}}>{l}</span>
+              <span style={{fontSize:'1rem',fontWeight:900,color:c}}>{v}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  </>
+);
+
+// ── Sheet helpers ─────────────────────────────────────────
+const HMAP = {
+  'name':'name','fullname':'name','student name':'name','student':'name','full name':'name',
+  'indexno':'indexNo','index no':'indexNo','index':'indexNo','student id':'indexNo','index number':'indexNo','idx':'indexNo',
+  'idno':'idNo','id no':'idNo','id':'idNo','nic':'idNo','national id':'idNo','reg no':'idNo',
+  'dob':'dob','date of birth':'dob','birthdate':'dob','birth date':'dob',
+  'gender':'gender','sex':'gender',
+  'grade':'grade','class':'grade','level':'grade','form':'grade','classroom':'grade',
+  'club':'club','society':'club','activity':'club','extracurricular':'club',
+  'house':'house','team':'house','dormitory':'house',
+  'email':'email','email address':'email','e-mail':'email',
+  'address':'address','permanent address':'address','home address':'address',
+  'academicyear':'academicYear','academic year':'academicYear','year':'academicYear','intake':'academicYear','batch':'academicYear',
+  'photo':'photoUrl','photourl':'photoUrl','image':'photoUrl','picture':'photoUrl',
+  'phone':'phone','mobile':'phone','contact':'phone','phone number':'phone',
+  'parent':'parentName','guardian':'parentName','parent name':'parentName',
+};
+
+async function fetchSheetData(url) {
+  const id = url.match(/\/d\/([a-zA-Z0-9-_]+)/)?.[1];
+  if(!id) throw new Error('Invalid sheet URL');
+  const r = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${id}/values/A1:Z5000?key=${GS_KEY}`);
+  if(r.status===403) throw new Error('Sheet is private — share as "Anyone with link → Viewer"');
+  if(!r.ok) throw new Error('Sheets API error '+r.status);
+  const d = await r.json();
+  if(!d.values||d.values.length<2) throw new Error('Sheet has no data rows');
+  return d.values;
+}
+
+function parseSheet(rows, fallbackYear) {
+  const hdrs = rows[0].map(h=>(h||'').trim().toLowerCase());
+  const out = [];
+  for(let i=1;i<rows.length;i++){
+    const row=rows[i];
+    if(!row||row.every(c=>!String(c).trim())) continue;
+    const s={name:'',indexNo:'',idNo:'',dob:'',gender:'Male',grade:'',club:'',house:'',email:'',address:'',academicYear:fallbackYear,photoUrl:'',phone:'',parentName:''};
+    for(let j=0;j<hdrs.length;j++){const k=HMAP[hdrs[j]];if(k&&j<row.length)s[k]=String(row[j]||'').trim();}
+    const g=(s.gender||'').toLowerCase();
+    if(g==='m'||g==='1') s.gender='Male';
+    else if(g==='f'||g==='2') s.gender='Female';
+    if(!s.academicYear) s.academicYear=fallbackYear;
+    if(!s.photoUrl&&s.name) s.photoUrl=`https://ui-avatars.com/api/?name=${encodeURIComponent(s.name)}&background=random&size=256`;
+    if(s.name&&s.indexNo) out.push(s);
+  }
+  return out;
+}
+
+// ── Main App ──────────────────────────────────────────────
+const App = () => {
+  const [students,setStudents]   = React.useState([]);
+  const [grades,setGrades]       = React.useState([]);
+  const [clubs,setClubs]         = React.useState([]);
+  const [houses,setHouses]       = React.useState([]);
+  const [years,setYears]         = React.useState(INIT_YEARS);
+  const [logs,setLogs]           = React.useState([]);
+  const [adminPass,setAP]        = React.useState(()=>localStorage.getItem('fas_ap')||'admin123');
+  const [superPass,setSP]        = React.useState(()=>localStorage.getItem('fas_sp')||'super123');
+  const [view,setView]           = React.useState('public');
+  const [isAdmin,setIsAdmin]     = React.useState(false);
+  const [isSuper,setIsSuper]     = React.useState(false);
+  const [passIn,setPassIn]       = React.useState('');
+  const [toast,setToast]         = React.useState(null);
+  const [drawer,setDrawer]       = React.useState(false);
+  const [selYear,setSelYear]     = React.useState(INIT_YEARS[0]);
+  const [logoClicks,setLC]       = React.useState(0);
+  const [showNav,setShowNav]     = React.useState(false);
+  const [isSyncing,setSyncing]   = React.useState(false);
+  const [lastSync,setLastSync]   = React.useState(()=>{const s=localStorage.getItem('fas_ls');return s?new Date(s):null;});
+  const [syncResult,setSyncRes]  = React.useState(null);
+  const [customSt,setCustomSt]   = React.useState(null); // never affects public portal
+
+  // Firebase realtime listeners
+  React.useEffect(()=>{
+    const db = window._fasDb;
+    if(!db) return;
+    const refs = {
+      students: db.ref('students'),
+      grades:   db.ref('grades'),
+      clubs:    db.ref('clubs'),
+      houses:   db.ref('houses'),
+      years:    db.ref('academicYears'),
+    };
+    refs.students.on('value',s=>{const d=s.val();setStudents(d?Object.keys(d).map(k=>({id:k,...d[k]})):[]);});
+    refs.grades.on('value',s=>{const d=s.val();setGrades(d?Object.keys(d).map(k=>({id:k,...d[k]})):[]);});
+    refs.clubs.on('value',s=>{const d=s.val();setClubs(d?Object.keys(d).map(k=>({id:k,...d[k]})):[]);});
+    refs.houses.on('value',s=>{const d=s.val();setHouses(d?Object.keys(d).map(k=>({id:k,...d[k]})):[]);});
+    refs.years.on('value',s=>{const d=s.val();if(d){const y=Object.values(d);setYears(y);setSelYear(p=>y.includes(p)?p:y[0]);}});
+    return()=>Object.values(refs).forEach(r=>r.off('value'));
+  },[]);
+
+  // Cross-tab custom stats sync — disabled, custom stats only affect Student Statistics file
+
+  React.useEffect(()=>{localStorage.setItem('fas_ap',adminPass);localStorage.setItem('fas_sp',superPass);},[adminPass,superPass]);
+
+  const showToast = (msg,type='success')=>{setToast({msg,type});setTimeout(()=>setToast(null),5000);};
+  const addLog    = a=>setLogs(p=>[{id:Date.now()+'',timestamp:new Date().toISOString(),action:a},...p].slice(0,100));
+
+  const handleLogoClick = ()=>{
+    const n=logoClicks+1;setLC(n);
+    if(n>=5){setShowNav(!showNav);setLC(0);}
+    setTimeout(()=>setLC(0),3000);
+  };
+
+  // Auth
+  const loginAdmin = e=>{e.preventDefault();if(passIn===adminPass){setIsAdmin(true);setPassIn('');addLog('Admin login');}else showToast('Invalid key','error');};
+  const loginSuper = e=>{e.preventDefault();if(passIn===superPass){setIsSuper(true);setPassIn('');addLog('Super login');}else showToast('Invalid key','error');};
+
+  // Student ops — all use REST API
+  const addStudent = async s=>{
+    try{
+      const r=await fbPOST('students',{...s});
+      await fbPUT('students/'+r,{...s,id:r});
+      addLog('Enrolled: '+s.name);showToast('Student registered');
+    }catch(e){showToast('Add failed: '+e.message,'error');}
+  };
+  const updateStudent = async s=>{
+    try{await fbPUT('students/'+s.id,s);addLog('Updated: '+s.name);showToast('Record updated');}
+    catch(e){showToast('Update failed','error');}
+  };
+  const deleteStudent = async id=>{
+    try{await fbDEL('students/'+id);addLog('Student deleted');showToast('Deleted','success');}
+    catch(e){showToast('Delete failed: '+e.message,'error');throw e;}
+  };
+
+  // Category ops
+  const setGradesF = async g=>{try{await fbDEL('grades');for(const x of g)await fbPOST('grades',x);setGrades(g);}catch(e){showToast('Error','error');}};
+  const setClubsF  = async c=>{try{await fbDEL('clubs'); for(const x of c)await fbPOST('clubs',x); setClubs(c);}catch(e){showToast('Error','error');}};
+  const setHousesF = async h=>{try{await fbDEL('houses');for(const x of h)await fbPOST('houses',x);setHouses(h);}catch(e){showToast('Error','error');}};
+  const setYearsF  = async y=>{try{await fbDEL('academicYears');for(let i=0;i<y.length;i++)await fbPUT('academicYears/'+i,y[i]);setYears(y);}catch(e){showToast('Error','error');}};
+
+  const deleteCat = async (type,id)=>{
+    if(type==='classes')await setGradesF(grades.filter(g=>g.name!==id));
+    else if(type==='clubs')await setClubsF(clubs.filter(c=>c.name!==id));
+    else if(type==='houses')await setHousesF(houses.filter(h=>h.name!==id));
+    else if(type==='years')await setYearsF(years.filter(y=>y!==id));
+    showToast('Entry removed','success');
+  };
+
+  // Wipe all data
+  const wipeAll = async ()=>{
+    try{
+      await fbDEL('students');
+      await fbDEL('grades');
+      await fbDEL('clubs');
+      await fbDEL('houses');
+      await fbDEL('academicYears');
+      setStudents([]);setGrades([]);setClubs([]);setHouses([]);
+      setYears(INIT_YEARS);
+      addLog('Full system wipe');
+    }catch(e){throw e;}
+  };
+
+  // Restore
+  const restoreDb = async data=>{
+    try{
+      await fbDEL('students');await fbDEL('grades');await fbDEL('clubs');await fbDEL('houses');await fbDEL('academicYears');
+      if(data.grades)await setGradesF(data.grades);
+      if(data.clubs)await setClubsF(data.clubs);
+      if(data.houses)await setHousesF(data.houses);
+      if(data.years)await setYearsF(data.years);
+      if(data.students)for(const s of data.students){const r=await fbPOST('students',s);await fbPUT('students/'+r,{...s,id:r});}
+      addLog('Restored: '+(data.students?.length||0)+' students');
+    }catch{showToast('Restore failed','error');}
+  };
+
+  // Sheet sync
+  const syncSheet = async (url)=>{
+    setSyncing(true);setSyncRes(null);
+    try{
+      const rows = await fetchSheetData(url||localStorage.getItem('fas_gs_url')||DEFAULT_SHEET);
+      const parsed = parseSheet(rows, selYear);
+      if(parsed.length===0) throw new Error('No valid records found');
+
+      // Get existing students snapshot via REST
+      const r = await fetch(`${FB_URL}/students.json`);
+      const existing = r.ok&&await r.json()||{};
+      const byIdx={};
+      if(existing) Object.values(existing).forEach(s=>{if(s&&s.indexNo)byIdx[s.indexNo]=s;});
+
+      let added=0,updated=0;
+      for(const s of parsed){
+        const ex=byIdx[s.indexNo];
+        if(ex){await fbPUT('students/'+ex.id,{...s,id:ex.id});updated++;}
+        else{const k=await fbPOST('students',s);await fbPUT('students/'+k,{...s,id:k});added++;}
+      }
+      const now=new Date();setLastSync(now);localStorage.setItem('fas_ls',now.toISOString());
+      setSyncRes({ok:true,msg:`✓ Sync done — ${added} added, ${updated} updated (${parsed.length} total)`});
+      showToast(`Sync done: +${added} new, ${updated} updated`,'success');
+      addLog(`Sheet sync: +${added}, ~${updated}`);
+    }catch(e){
+      setSyncRes({ok:false,msg:'✗ '+e.message});
+      showToast(e.message,'error');
+    }
+    setSyncing(false);
+  };
+
+  const stats = React.useMemo(()=>{
+    // Public portal + sidebar always shows LIVE data — never affected by Super Admin custom stats
+    const cur=students.filter(s=>String(s.academicYear)===String(selYear));
+    return {total:cur.length,boys:cur.filter(s=>s.gender==='Male').length,girls:cur.filter(s=>s.gender==='Female').length};
+  },[students,selYear]);
+
+  return <div style={{minHeight:'100vh',background:'#f8fafc'}}>
+    {toast&&<Toast msg={toast.msg} type={toast.type} onClose={()=>setToast(null)}/>}
+
+    <Drawer open={drawer} onClose={()=>setDrawer(false)} view={view} setView={setView}
+      selYear={selYear} setSelYear={setSelYear} years={years} stats={stats}
+      isAdmin={isAdmin} isSuper={isSuper}/>
+
+    {/* Mobile header */}
+    <div className="mob-hdr">
+      <button onClick={()=>setDrawer(true)} style={{width:'2.1rem',height:'2.1rem',borderRadius:'.45rem',background:'#f1f5f9',border:'none',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',color:'#475569'}}><Ic.Menu s={20}/></button>
+      <div style={{display:'flex',alignItems:'center',gap:'.5rem'}}>
+        <div style={{width:'1.75rem',height:'1.75rem',background:'#4f46e5',borderRadius:'.4rem',display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontWeight:900,fontSize:'.85rem'}}>F</div>
+        <span style={{fontWeight:800,fontSize:'1rem',color:'#0f172a'}}>Student SIS</span>
+      </div>
+      <div style={{width:'2.1rem'}}/>
+    </div>
+
+    {/* Desktop header */}
+    <div className="desk-hdr">
+      <div style={{display:'flex',alignItems:'center',gap:'.75rem'}}>
+        <button onClick={handleLogoClick} style={{width:'2.25rem',height:'2.25rem',background:'#4f46e5',borderRadius:'.55rem',border:'none',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontWeight:900,fontSize:'.9rem'}}>F</button>
+        <div>
+          <div style={{fontWeight:900,fontSize:'1rem',color:'#0f172a',lineHeight:1}}>Student Information System</div>
+          <div style={{fontSize:'.62rem',fontWeight:800,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'.12em'}}>{view} portal</div>
+        </div>
+      </div>
+      {showNav&&<div style={{display:'flex',gap:'.3rem'}}>
+        {[['public','Public'],['admin','Admin'],['super','Super']].map(([id,l])=>(
+          <button key={id} onClick={()=>setView(id)}
+            style={{padding:'.45rem .875rem',borderRadius:'.5rem',border:'none',cursor:'pointer',fontWeight:800,fontSize:'.72rem',textTransform:'uppercase',letterSpacing:'.06em',background:view===id?'white':'transparent',color:view===id?'#4f46e5':'#94a3b8',boxShadow:view===id?'0 1px 4px rgba(0,0,0,.08)':'none',transition:'all .15s'}}>
+            {l}
+          </button>
+        ))}
+      </div>}
+    </div>
+
+    {/* Main grid */}
+    <div className="main-grid">
+      <Sidebar selYear={selYear} setSelYear={setSelYear} years={years} stats={stats}/>
+      <div>
+        {view==='public'&&<PublicView students={students} grades={grades} clubs={clubs} houses={houses} years={years} selYear={selYear} setSelYear={setSelYear} customStats={null}/>}
+        {view==='admin'&&(!isAdmin
+          ? <LoginBox title="Staff Authorization" value={passIn} setValue={setPassIn} onSubmit={loginAdmin} icon={<Ic.Shield s={22}/>}/>
+          : <AdminView students={students} selYear={selYear} grades={grades} clubs={clubs} houses={houses} years={years}
+              onAdd={addStudent} onUpdate={updateStudent} onDelete={deleteStudent} onDeleteCat={deleteCat}
+              onSetGrades={setGradesF} onSetClubs={setClubsF} onSetHouses={setHousesF} onSetYears={setYearsF}
+              onPublicView={()=>setView('public')}
+              isSyncing={isSyncing} lastSync={lastSync} syncResult={syncResult} onSync={syncSheet}/>
+        )}
+        {view==='super'&&(!isSuper
+          ? <LoginBox title="Super Authority" value={passIn} setValue={setPassIn} onSubmit={loginSuper} icon={<Ic.Lock s={22}/>} dark/>
+          : <SuperView logs={logs}
+              onSetAdminPass={p=>{setAP(p);addLog('Admin pass changed');}}
+              onSetSuperPass={p=>{setSP(p);addLog('Super pass changed');}}
+              onWipe={wipeAll} onRestore={restoreDb}
+              students={students} grades={grades} clubs={clubs} houses={houses} years={years}
+              selYear={selYear} showToast={showToast}/>
+        )}
+      </div>
+    </div>
+  </div>;
+};
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+
+<script>
+// Firebase init — MUST be after SDK scripts load
+const firebaseConfig = {
+  apiKey: "AIzaSyDuoYfArP0-ifxYZ_UKgM7_oAf0dzolANs",
+  authDomain: "student-management-syste-b952d.firebaseapp.com",
+  databaseURL: "https://student-management-syste-b952d-default-rtdb.firebaseio.com",
+  projectId: "student-management-syste-b952d",
+  storageBucket: "student-management-syste-b952d.firebasestorage.app",
+  messagingSenderId: "116847902508",
+  appId: "1:116847902508:web:55c6e02f9c775573357689",
+  measurementId: "G-XJLYYQK9VZ"
+};
+firebase.initializeApp(firebaseConfig);
+window._fasDb = firebase.database(); // exposed to React via window
+</script>
+</body>
+</html>

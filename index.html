@@ -674,46 +674,12 @@ const CsvUpload = ({years,grades,clubs,houses,onImport,showToast}) => {
     reader.readAsText(file);
   };
 
-  const [dupConf,  setDupConf]  = React.useState(null); // {dupes, newRows, allRows, year}
-
   const doImport = async () => {
     if(!preview||!preview.rows.length) return;
-    // Check for duplicates against existing Firebase students
-    setSaving(true);
-    try {
-      const r = await fetch(`${FB_URL}/students.json`);
-      const existing = r.ok ? await r.json() : {};
-      const byIdx = {};
-      if(existing) Object.values(existing).forEach(s=>{ if(s&&s.indexNo) byIdx[s.indexNo]=s; });
-      const dupes   = preview.rows.filter(s=>byIdx[s.indexNo]);
-      const newRows = preview.rows.filter(s=>!byIdx[s.indexNo]);
-      if(dupes.length>0) {
-        // Show confirmation dialog
-        setSaving(false);
-        setDupConf({dupes, newRows, allRows:preview.rows, year:preview.year});
-        return;
-      }
-      // No dupes — import directly
-      await onImport(preview.rows, preview.year, p=>setProg(p));
-      showToast(`✓ ${preview.rows.length} students imported for ${preview.year}`,'success');
-      setPrev(null); setSelY('');
-    }catch(e){showToast('Import failed: '+e.message,'error');}
-    setSaving(false); setProg(0);
-  };
-
-  const confirmImport = async (mode) => {
-    // mode: 'update' = import all (update dupes), 'skip' = only new, 'cancel' = do nothing
-    const {dupes,newRows,allRows,year} = dupConf;
-    setDupConf(null);
-    if(mode==='cancel') return;
     setSaving(true); setProg(0);
-    const rows = mode==='skip' ? newRows : allRows;
     try {
-      await onImport(rows, year, p=>setProg(p));
-      if(mode==='skip')
-        showToast(`✓ ${newRows.length} new students imported, ${dupes.length} duplicates skipped`,'success');
-      else
-        showToast(`✓ ${allRows.length} students imported (${dupes.length} updated, ${newRows.length} new)`,'success');
+      await onImport(preview.rows, preview.year, p=>setProg(p));
+      showToast(`✓ ${preview.rows.length} students saved to Firebase (${preview.year})`,'success');
       setPrev(null); setSelY('');
     }catch(e){showToast('Import failed: '+e.message,'error');}
     setSaving(false); setProg(0);
@@ -730,42 +696,6 @@ const CsvUpload = ({years,grades,clubs,houses,onImport,showToast}) => {
   };
 
   return <div style={{marginTop:'1rem',paddingTop:'1rem',borderTop:'1px solid #a7f3d0'}}>
-
-    {/* Duplicate confirmation dialog */}
-    {dupConf&&<div className="modal-bg">
-      <div className="modal-box modal-sm">
-        <div style={{textAlign:'center',marginBottom:'1.25rem'}}>
-          <div style={{width:'3.25rem',height:'3.25rem',background:'#fffbeb',borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto .75rem',fontSize:'1.4rem'}}>⚠️</div>
-          <h3 style={{fontSize:'1.1rem',fontWeight:900,color:'#0f172a',marginBottom:'.4rem'}}>Duplicate Students Found</h3>
-          <p style={{color:'#64748b',fontSize:'.85rem'}}>
-            <strong style={{color:'#dc2626'}}>{dupConf.dupes.length} student{dupConf.dupes.length!==1?'s':''}</strong> already exist in Firebase with the same Index Number.
-          </p>
-        </div>
-        {/* Show duplicate list */}
-        <div style={{background:'#fef2f2',border:'1px solid #fecaca',borderRadius:'.875rem',padding:'.75rem',marginBottom:'1rem',maxHeight:'160px',overflowY:'auto'}}>
-          <div style={{fontSize:'.65rem',fontWeight:800,color:'#dc2626',textTransform:'uppercase',letterSpacing:'.08em',marginBottom:'.4rem'}}>Existing records that will be affected:</div>
-          {dupConf.dupes.map((s,i)=><div key={i} style={{display:'flex',alignItems:'center',gap:'.5rem',padding:'.3rem 0',borderBottom:'1px solid #fee2e2'}}>
-            <span style={{fontFamily:'monospace',fontWeight:700,color:'#4f46e5',fontSize:'.75rem'}}>{s.indexNo}</span>
-            <span style={{fontWeight:700,color:'#0f172a',fontSize:'.78rem'}}>{s.name}</span>
-            <span className={`badge ${s.gender==='Male'?'badge-blue':'badge-pink'}`}>{s.gender}</span>
-          </div>)}
-        </div>
-        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'.5rem',marginBottom:'.5rem'}}>
-          <button onClick={()=>confirmImport('update')}
-            style={{padding:'.75rem',background:'linear-gradient(135deg,#f59e0b,#d97706)',color:'white',border:'none',borderRadius:'.75rem',fontWeight:800,fontSize:'.72rem',cursor:'pointer',textTransform:'uppercase',letterSpacing:'.05em'}}>
-            ✏️ Update Duplicates<br/><span style={{fontWeight:600,fontSize:'.65rem',opacity:.85}}>Import all {dupConf.allRows.length} students</span>
-          </button>
-          <button onClick={()=>confirmImport('skip')}
-            style={{padding:'.75rem',background:'linear-gradient(135deg,#059669,#047857)',color:'white',border:'none',borderRadius:'.75rem',fontWeight:800,fontSize:'.72rem',cursor:'pointer',textTransform:'uppercase',letterSpacing:'.05em'}}>
-            ⏭ Skip Duplicates<br/><span style={{fontWeight:600,fontSize:'.65rem',opacity:.85}}>Import {dupConf.newRows.length} new only</span>
-          </button>
-        </div>
-        <button onClick={()=>setDupConf(null)}
-          style={{width:'100%',padding:'.7rem',background:'#f1f5f9',color:'#475569',border:'none',borderRadius:'.75rem',fontWeight:800,fontSize:'.72rem',cursor:'pointer',textTransform:'uppercase',letterSpacing:'.05em'}}>
-          ✕ Cancel — Don't Import
-        </button>
-      </div>
-    </div>}
 
     <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'.75rem',flexWrap:'wrap',gap:'.5rem'}}>
       <div>
@@ -870,37 +800,16 @@ const exportStudentsCSV = (students, filename) => {
   URL.revokeObjectURL(url);
 };
 
-// ── Sheets Sync ──────────────────────────────────────────
+// ── Sheets Sync (CSV only — no Google Sheets) ───────────
 const SheetsSync = ({students,isSyncing,lastSync,syncResult,onSync,onImport,years,grades,clubs,houses,showToast}) => {
-  const [url,setUrl]       = React.useState(()=>localStorage.getItem('fas_gs_url')||DEFAULT_SHEET);
-  const [testMsg,setTM]    = React.useState('');
-  const [testing,setTst]   = React.useState(false);
-  const [wbUrl,setWb]      = React.useState(()=>localStorage.getItem('fas_wb_url')||'');
   const [exportYear,setEY] = React.useState('all');
-  const [exporting,setExp] = React.useState(false);
-
-  const testConn = async () => {
-    setTst(true); setTM('Connecting…');
-    try {
-      const id=url.match(/\/d\/([a-zA-Z0-9-_]+)/)?.[1]; if(!id) throw new Error('Invalid URL');
-      const r=await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${id}/values/A1:Z3?key=${GS_KEY}`);
-      if(r.status===403) throw new Error('Sheet is private — share as "Anyone with link → Viewer"');
-      if(!r.ok) throw new Error('Error '+r.status);
-      const d=await r.json(); const rows=d.values||[];
-      if(rows.length===0) throw new Error('Sheet is empty');
-      setTM(`✓ Connected — ${rows.length-1} rows`);
-    } catch(e){ setTM('✗ '+e.message); }
-    setTst(false);
-  };
 
   const doExportCSV = () => {
     if(!students?.length){ showToast('No students to export','error'); return; }
     if(exportYear==='all') {
-      // Export all students in one file
       exportStudentsCSV(students, `all_students_${new Date().toISOString().split('T')[0]}.csv`);
       showToast(`Exported ${students.length} students (all years)`,'success');
     } else if(exportYear==='separate') {
-      // Export one CSV per academic year
       const byYear = {};
       students.forEach(s=>{ const y=s.academicYear||'unknown'; if(!byYear[y]) byYear[y]=[]; byYear[y].push(s); });
       Object.entries(byYear).forEach(([y,arr])=>{
@@ -908,7 +817,6 @@ const SheetsSync = ({students,isSyncing,lastSync,syncResult,onSync,onImport,year
       });
       showToast(`Exported ${Object.keys(byYear).length} files (one per year)`,'success');
     } else {
-      // Export specific year
       const filtered = students.filter(s=>String(s.academicYear)===String(exportYear));
       if(!filtered.length){ showToast(`No students in ${exportYear}`,'error'); return; }
       exportStudentsCSV(filtered, `students_${exportYear}_${new Date().toISOString().split('T')[0]}.csv`);
@@ -916,7 +824,6 @@ const SheetsSync = ({students,isSyncing,lastSync,syncResult,onSync,onImport,year
     }
   };
 
-  // Count by year for display
   const yearCounts = React.useMemo(()=>{
     const c={};
     (students||[]).forEach(s=>{ const y=s.academicYear||'unknown'; c[y]=(c[y]||0)+1; });
@@ -926,36 +833,21 @@ const SheetsSync = ({students,isSyncing,lastSync,syncResult,onSync,onImport,year
   return <div className="sync-box">
     <div style={{display:'flex',alignItems:'center',gap:'.75rem',marginBottom:'1rem',flexWrap:'wrap'}}>
       <div style={{width:'2.5rem',height:'2.5rem',background:'#d1fae5',borderRadius:'.75rem',display:'flex',alignItems:'center',justifyContent:'center',color:'#047857'}}><Ic.Sheet s={20}/></div>
-      <div><div style={{fontWeight:900,color:'#0f172a',fontSize:'.9rem'}}>Google Sheets Sync</div>
-      <div style={{fontSize:'.66rem',color:'#64748b'}}>{lastSync?'Last sync: '+lastSync.toLocaleString():'Never synced'}</div></div>
-    </div>
-    <div style={{marginBottom:'.75rem'}}>
-      <label className="lbl">Google Sheets URL</label>
-      <div style={{display:'flex',gap:'.5rem',flexWrap:'wrap'}}>
-        <input className="inp" value={url} onChange={e=>setUrl(e.target.value)} placeholder="https://docs.google.com/spreadsheets/d/…" style={{flex:1,minWidth:'180px'}}/>
-        <button onClick={testConn} disabled={testing} style={{background:'#2563eb',color:'white',border:'none',borderRadius:'.625rem',padding:'0 .875rem',fontWeight:800,fontSize:'.73rem',cursor:'pointer',display:'flex',alignItems:'center',gap:'.3rem',height:'46px'}}>
-          {testing?<Ic.Sync s={13} spin/>:<Ic.Check s={13}/>}Test
-        </button>
+      <div>
+        <div style={{fontWeight:900,color:'#0f172a',fontSize:'.9rem'}}>Data Management</div>
+        <div style={{fontSize:'.66rem',color:'#64748b'}}>{students?.length||0} students in Firebase</div>
       </div>
-      {testMsg&&<div style={{marginTop:'.4rem',padding:'.4rem .7rem',borderRadius:'.5rem',fontSize:'.73rem',fontWeight:700,background:testMsg.startsWith('✓')?'#ecfdf5':'#fef2f2',color:testMsg.startsWith('✓')?'#047857':'#dc2626',border:`1px solid ${testMsg.startsWith('✓')?'#a7f3d0':'#fecaca'}`}}>{testMsg}</div>}
     </div>
-    {syncResult&&<div style={{marginBottom:'.75rem',padding:'.4rem .7rem',borderRadius:'.5rem',fontSize:'.73rem',fontWeight:700,background:syncResult.ok?'#ecfdf5':'#fef2f2',color:syncResult.ok?'#047857':'#dc2626',border:`1px solid ${syncResult.ok?'#a7f3d0':'#fecaca'}`}}>{syncResult.msg}</div>}
-    <button className="btn btn-emerald w-full" style={{justifyContent:'center',padding:'.8rem',fontSize:'.82rem'}} onClick={()=>{localStorage.setItem('fas_gs_url',url);onSync(url);}} disabled={isSyncing}>
-      {isSyncing?<><Ic.Sync s={14} spin/>Syncing…</>:<><Ic.Sync s={14}/>Sync Sheet → Firebase</>}
-    </button>
 
-    {/* ── CSV Export Section ── */}
-    <div style={{borderTop:'1px solid #a7f3d0',marginTop:'1rem',paddingTop:'1rem'}}>
-      <div style={{fontWeight:900,color:'#0f172a',fontSize:'.875rem',marginBottom:'.5rem'}}>📥 Export Students to CSV</div>
-      <div style={{fontSize:'.65rem',color:'#64748b',marginBottom:'.75rem'}}>
-        {students?.length||0} total students
-        {Object.keys(yearCounts).length>0&&' · '+Object.entries(yearCounts).map(([y,c])=>`${y}: ${c}`).join(', ')}
+    {/* CSV Export */}
+    <div style={{marginBottom:'1rem'}}>
+      <div style={{fontWeight:800,color:'#0f172a',fontSize:'.82rem',marginBottom:'.5rem'}}>📥 Export Students to CSV</div>
+      <div style={{fontSize:'.65rem',color:'#64748b',marginBottom:'.625rem'}}>
+        {Object.keys(yearCounts).length>0&&Object.entries(yearCounts).map(([y,c])=>`${y}: ${c}`).join(' · ')}
       </div>
-
-      {/* Year selector chips */}
-      <div style={{display:'flex',gap:'.35rem',flexWrap:'wrap',marginBottom:'.75rem'}}>
+      <div style={{display:'flex',gap:'.35rem',flexWrap:'wrap',marginBottom:'.625rem'}}>
         {[
-          {v:'all',   l:`All Years (${students?.length||0})`},
+          {v:'all',      l:`All Years (${students?.length||0})`},
           {v:'separate', l:'Separate Files'},
           ...Object.entries(yearCounts).map(([y,c])=>({v:y,l:`${y} (${c})`}))
         ].map(opt=>(
@@ -965,24 +857,87 @@ const SheetsSync = ({students,isSyncing,lastSync,syncResult,onSync,onImport,year
           </button>
         ))}
       </div>
-
       <button onClick={doExportCSV}
-        style={{width:'100%',padding:'.75rem',background:'linear-gradient(135deg,#059669,#047857)',color:'white',border:'none',borderRadius:'.875rem',fontWeight:800,fontSize:'.78rem',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:'.4rem',textTransform:'uppercase',letterSpacing:'.06em'}}>
+        style={{width:'100%',padding:'.7rem',background:'linear-gradient(135deg,#059669,#047857)',color:'white',border:'none',borderRadius:'.875rem',fontWeight:800,fontSize:'.75rem',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:'.4rem',textTransform:'uppercase',letterSpacing:'.06em'}}>
         <Ic.Download s={14}/>
         {exportYear==='all'?`Download All ${students?.length||0} Students`:
-         exportYear==='separate'?`Download ${Object.keys(yearCounts).length} Separate CSV Files`:
+         exportYear==='separate'?`Download ${Object.keys(yearCounts).length} Separate Files`:
          `Download ${yearCounts[exportYear]||0} Students (${exportYear})`}
       </button>
     </div>
 
-    <div style={{borderTop:'1px solid #a7f3d0',marginTop:'1rem',paddingTop:'.875rem'}}>
-      <div style={{fontWeight:900,color:'#7c2d12',fontSize:'.82rem',marginBottom:'.4rem'}}>✏️ Apps Script Write-back URL</div>
-      <div style={{display:'flex',gap:'.5rem'}}>
-        <input className="inp" value={wbUrl} onChange={e=>setWb(e.target.value)} placeholder="https://script.google.com/macros/s/…/exec" style={{fontSize:'.78rem'}}/>
-        <button onClick={()=>{localStorage.setItem('fas_wb_url',wbUrl);alert('Saved!');}} style={{background:'#ea580c',color:'white',border:'none',borderRadius:'.625rem',padding:'0 .875rem',fontWeight:800,fontSize:'.73rem',cursor:'pointer',height:'46px',whiteSpace:'nowrap'}}>Save</button>
+    {/* CSV Upload */}
+    {onImport&&<CsvUpload years={years} grades={grades||[]} clubs={clubs||[]} houses={houses||[]} onImport={onImport} showToast={showToast}/>}
+  </div>;
+};
+
+
+// ── Admin Statistics Panel ───────────────────────────────
+const AdminStats = ({students, selYear, showToast}) => {
+  const [editSt, setESt]  = React.useState(false);
+  const [customSt,setCS]  = React.useState(null);
+  const [stTmp,  setSTmp] = React.useState({total:0,boys:0,girls:0});
+
+  const cur  = students.filter(s=>String(s.academicYear)===String(selYear));
+  const live = {total:cur.length, boys:cur.filter(s=>s.gender==='Male').length, girls:cur.filter(s=>s.gender==='Female').length};
+  const disp = customSt||live;
+
+  return <div className="card-xl" style={{padding:'1.25rem',marginBottom:'1rem'}}>
+    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:'.5rem',marginBottom:'.875rem'}}>
+      <div>
+        <div style={{fontWeight:900,fontSize:'.875rem',color:'#0f172a'}}>📊 Statistics Display</div>
+        <div style={{fontSize:'.65rem',color:'#94a3b8',marginTop:'.1rem'}}>
+          {customSt ? 'Showing custom numbers — Student Statistics screen' : 'Showing live Firebase counts'}
+        </div>
+      </div>
+      <div style={{display:'flex',gap:'.4rem'}}>
+        {customSt&&<button onClick={async()=>{
+          setCS(null);
+          try{await fetch('https://studentstat-968de-default-rtdb.firebaseio.com/custom_stats.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({active:false})});}catch(e){}
+          showToast('Reset to live statistics','success');
+        }} className="btn btn-emerald btn-sm">Use Live</button>}
+        <button onClick={()=>{setSTmp(disp);setESt(!editSt);}} className="btn btn-ghost btn-sm">
+          {editSt?'Cancel':'Edit Stats'}
+        </button>
       </div>
     </div>
-    {onImport&&<CsvUpload years={years} grades={grades||[]} clubs={clubs||[]} houses={houses||[]} onImport={onImport} showToast={showToast}/>}
+
+    {/* Stats display */}
+    <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'.75rem',marginBottom:editSt?'.875rem':'0'}}>
+      {[['Total Students',disp.total,'#4f46e5','sst-i'],['Boys Enrolled',disp.boys,'#2563eb','sst-b'],['Girls Enrolled',disp.girls,'#be123c','sst-r']].map(([l,v,c,cls])=>(
+        <div key={l} className={`sst ${cls}`}>
+          <span className="sst-lbl">{l}</span>
+          <span className="sst-val">{v}</span>
+        </div>
+      ))}
+    </div>
+
+    {/* Edit form */}
+    {editSt && <div style={{borderTop:'1px solid #f1f5f9',paddingTop:'.875rem'}}>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'.75rem',marginBottom:'.75rem'}}>
+        {[['Total','total'],['Boys','boys'],['Girls','girls']].map(([l,k])=>(
+          <div key={k}>
+            <label className="lbl">{l}</label>
+            <input className="inp" type="number" min="0" value={stTmp[k]}
+              onChange={e=>setSTmp({...stTmp,[k]:parseInt(e.target.value)||0})}/>
+          </div>
+        ))}
+      </div>
+      <button onClick={async()=>{
+        setCS(stTmp);
+        try{
+          await fetch('https://studentstat-968de-default-rtdb.firebaseio.com/custom_stats.json',{
+            method:'PUT',
+            headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({...stTmp,active:true,updatedAt:new Date().toISOString()})
+          });
+          showToast('Stats saved — Student Statistics display updated','success');
+        }catch(e){showToast('Save failed','error');}
+        setESt(false);
+      }} className="btn btn-emerald" style={{width:'100%',justifyContent:'center',padding:'.75rem'}}>
+        <Ic.Save s={14}/>Save Stats to Display
+      </button>
+    </div>}
   </div>;
 };
 
@@ -1058,6 +1013,9 @@ const AdminView = ({students,selYear,grades,clubs,houses,years,onAdd,onUpdate,on
       </div>
       <SheetsSync students={students} isSyncing={isSyncing} lastSync={lastSync} syncResult={syncResult} onSync={onSync} onImport={onCsvImport} years={years} grades={grades} clubs={clubs} houses={houses} showToast={showToast}/>
     </div>
+
+    {/* Statistics Panel */}
+    <AdminStats students={students} selYear={selYear} showToast={showToast}/>
 
     {/* Tabs */}
     <div className="tab-bar" style={{marginBottom:'1rem'}}>
@@ -1251,22 +1209,24 @@ const AdminView = ({students,selYear,grades,clubs,houses,years,onAdd,onUpdate,on
 };
 
 // ── Super Admin ──────────────────────────────────────────
-const SuperView = ({logs,onSetAdminPass,onSetSuperPass,onWipe,onRestore,students,grades,clubs,houses,years,selYear,showToast}) => {
-  const [newAP,setNAP]    = React.useState('');
-  const [newSP,setNSP]    = React.useState('');
-  const [wipeOpen,setWO]  = React.useState(false);
-  const [wipeText,setWT]  = React.useState('');
-  const [wiping,setWiping]= React.useState(false);
-  const [restoreD,setRD]  = React.useState(null);
-  const [delS,setDelS]    = React.useState(null);
-  const [customSt,setCS]  = React.useState(null);
-  const [editSt,setESt]   = React.useState(false);
-  const [stTmp,setSTmp]   = React.useState({total:0,boys:0,girls:0});
+const SuperView = ({logs,onSetAdminPass,onSetSuperPass,onWipe,onWipeYear,onRestore,students,grades,clubs,houses,years,selYear,showToast}) => {
+  const [newAP,setNAP]      = React.useState('');
+  const [newSP,setNSP]      = React.useState('');
+  const [wipeMode,setWM]    = React.useState(null); // null | 'all' | 'year'
+  const [wipeYear,setWY]    = React.useState('');
+  const [wiping,setWiping]  = React.useState(false);
+  const [restoreD,setRD]    = React.useState(null);
+  const [delS,setDelS]      = React.useState(null);
   const fileRef = React.useRef();
 
-  const cur  = students.filter(s=>String(s.academicYear)===String(selYear));
-  const live = {total:cur.length,boys:cur.filter(s=>s.gender==='Male').length,girls:cur.filter(s=>s.gender==='Female').length};
-  const disp = customSt||live;
+  // Dynamic year counts from actual student data
+  const yearCounts = React.useMemo(()=>{
+    const c={};
+    students.forEach(s=>{ const y=s.academicYear||'unknown'; c[y]=(c[y]||0)+1; });
+    return c;
+  },[students]);
+
+
 
   const exportBk = ()=>{
     const b=new Blob([JSON.stringify({students,grades,clubs,houses,years},null,2)],{type:'application/json'});
@@ -1278,31 +1238,48 @@ const SuperView = ({logs,onSetAdminPass,onSetSuperPass,onWipe,onRestore,students
     const r=new FileReader();r.onload=ev=>{try{const d=JSON.parse(ev.target.result);if(d.students)setRD(d);else showToast('Invalid backup','error');}catch{showToast('Read failed','error');}};
     r.readAsText(f);if(fileRef.current)fileRef.current.value='';
   };
+
   const doWipe = async ()=>{
     setWiping(true);
-    try{await onWipe();setWO(false);setWT('');showToast('All data wiped','success');}
-    catch(e){showToast('Wipe failed: '+e.message,'error');}
+    try{
+      if(wipeMode==='all'){
+        await onWipe();
+        showToast('All data wiped','success');
+      } else {
+        await onWipeYear(wipeYear);
+        showToast(`${wipeYear} data deleted (${yearCounts[wipeYear]||0} students)`,'success');
+      }
+      setWM(null); setWY('');
+    }catch(e){showToast('Wipe failed: '+e.message,'error');}
     setWiping(false);
   };
 
   return <div className="super-bg">
-    {wipeOpen&&<div className="wipe-bg">
-      <div className="wipe-box">
-        <div style={{display:'flex',alignItems:'center',gap:'.875rem',marginBottom:'1.25rem',paddingBottom:'1rem',borderBottom:'1px solid rgba(255,255,255,.1)'}}>
-          <div style={{width:'3rem',height:'3rem',background:'rgba(220,38,38,.2)',borderRadius:'.875rem',display:'flex',alignItems:'center',justifyContent:'center',color:'#f87171'}}><Ic.Alert s={22}/></div>
-          <div><div style={{color:'white',fontWeight:900,fontSize:'1.1rem'}}>Wipe All Data</div>
-          <div style={{color:'#94a3b8',fontSize:'.78rem'}}>Permanently deletes all Firebase data</div></div>
-          <button onClick={()=>setWO(false)} style={{marginLeft:'auto',background:'rgba(255,255,255,.08)',border:'none',borderRadius:'.5rem',padding:'.4rem',cursor:'pointer',color:'#94a3b8',display:'flex'}}><Ic.X s={16}/></button>
-        </div>
-        <div style={{marginBottom:'1rem'}}>
-          <div style={{fontSize:'.68rem',fontWeight:800,color:'#f87171',textTransform:'uppercase',letterSpacing:'.08em',marginBottom:'.4rem',textAlign:'center'}}>Type DELETE ALL DATA to confirm</div>
-          <input className="wipe-inp" value={wipeText} onChange={e=>setWT(e.target.value.toUpperCase())} placeholder="DELETE ALL DATA" autoFocus/>
+
+    {/* ── Wipe confirm modal — simple 2-button ── */}
+    {wipeMode&&<div className="wipe-bg">
+      <div className="wipe-box" style={{maxWidth:'400px'}}>
+        <div style={{textAlign:'center',marginBottom:'1.5rem'}}>
+          <div style={{fontSize:'2.5rem',marginBottom:'.75rem'}}>🗑️</div>
+          <div style={{color:'white',fontWeight:900,fontSize:'1.2rem',marginBottom:'.4rem'}}>
+            {wipeMode==='all' ? 'Wipe All Data?' : `Delete ${wipeYear} Data?`}
+          </div>
+          <div style={{color:'#94a3b8',fontSize:'.85rem'}}>
+            {wipeMode==='all'
+              ? `This will permanently delete ALL ${students.length} students.`
+              : `This will permanently delete ${yearCounts[wipeYear]||0} students from ${wipeYear}.`}
+          </div>
         </div>
         <div style={{display:'flex',gap:'.625rem'}}>
-          <button onClick={()=>setWO(false)} style={{flex:1,padding:'.8rem',background:'rgba(255,255,255,.07)',border:'1px solid rgba(255,255,255,.1)',borderRadius:'.75rem',color:'#94a3b8',fontWeight:800,cursor:'pointer',fontSize:'.75rem',textTransform:'uppercase'}}>Cancel</button>
-          <button disabled={wipeText!=='DELETE ALL DATA'||wiping} onClick={doWipe}
-            style={{flex:1,padding:'.8rem',background:wipeText==='DELETE ALL DATA'?'linear-gradient(135deg,#dc2626,#991b1b)':'rgba(220,38,38,.25)',border:'none',borderRadius:'.75rem',color:wipeText==='DELETE ALL DATA'?'white':'rgba(255,255,255,.3)',fontWeight:800,cursor:wipeText==='DELETE ALL DATA'?'pointer':'not-allowed',fontSize:'.75rem',textTransform:'uppercase',display:'flex',alignItems:'center',justifyContent:'center',gap:'.4rem'}}>
-            {wiping?<><div style={{width:'13px',height:'13px',border:'2px solid white',borderTopColor:'transparent',borderRadius:'50%',animation:'spin .8s linear infinite'}}/>Wiping…</>:<><Ic.Trash s={13}/>Wipe All</>}
+          <button onClick={()=>{setWM(null);}}
+            style={{flex:1,padding:'.875rem',background:'rgba(255,255,255,.07)',border:'1px solid rgba(255,255,255,.15)',borderRadius:'.875rem',color:'white',fontWeight:800,cursor:'pointer',fontSize:'.82rem',textTransform:'uppercase'}}>
+            Cancel
+          </button>
+          <button onClick={doWipe} disabled={wiping}
+            style={{flex:1,padding:'.875rem',background:'linear-gradient(135deg,#dc2626,#991b1b)',border:'none',borderRadius:'.875rem',color:'white',fontWeight:800,cursor:'pointer',fontSize:'.82rem',textTransform:'uppercase',display:'flex',alignItems:'center',justifyContent:'center',gap:'.4rem'}}>
+            {wiping
+              ? <><div style={{width:'14px',height:'14px',border:'2px solid white',borderTopColor:'transparent',borderRadius:'50%',animation:'spin .8s linear infinite'}}/>Deleting…</>
+              : <><Ic.Trash s={14}/>{wipeMode==='all'?'Yes, Delete All':'Yes, Delete'}</>}
           </button>
         </div>
       </div>
@@ -1333,6 +1310,7 @@ const SuperView = ({logs,onSetAdminPass,onSetSuperPass,onWipe,onRestore,students
 
     <input type="file" ref={fileRef} className="hidden" accept=".json" onChange={importBk}/>
 
+    {/* Header */}
     <div className="super-card" style={{padding:'1.25rem',marginBottom:'1rem',display:'flex',alignItems:'center',gap:'.875rem',flexWrap:'wrap'}}>
       <div style={{width:'3rem',height:'3rem',background:'linear-gradient(135deg,#6366f1,#4f46e5)',borderRadius:'.875rem',display:'flex',alignItems:'center',justifyContent:'center',color:'white'}}><Ic.Lock s={22}/></div>
       <div>
@@ -1344,54 +1322,61 @@ const SuperView = ({logs,onSetAdminPass,onSetSuperPass,onWipe,onRestore,students
       </div>
     </div>
 
-    <div className="super-card" style={{padding:'1.25rem',marginBottom:'1rem'}}>
-      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:'.5rem',marginBottom:'.875rem'}}>
-        <div style={{color:'white',fontWeight:900,fontSize:'.9rem'}}>Statistics {customSt?'(custom)':'(live)'}</div>
-        <div style={{display:'flex',gap:'.4rem'}}>
-          {customSt&&<button onClick={async()=>{setCS(null);try{await fetch('https://studentstat-968de-default-rtdb.firebaseio.com/custom_stats.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({active:false})});}catch(e){}showToast('Reset to live','success');}} style={{background:'rgba(16,185,129,.15)',border:'1px solid rgba(16,185,129,.3)',borderRadius:'.5rem',padding:'.3rem .75rem',color:'#10b981',fontSize:'.68rem',fontWeight:800,cursor:'pointer'}}>Use Live</button>}
-          <button onClick={()=>{setSTmp(disp);setESt(!editSt);}} style={{background:'rgba(255,255,255,.1)',border:'1px solid rgba(255,255,255,.15)',borderRadius:'.5rem',padding:'.3rem .75rem',color:'white',fontSize:'.68rem',fontWeight:800,cursor:'pointer'}}>{editSt?'Cancel':'Edit'}</button>
-        </div>
-      </div>
-      {!editSt ? <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'.875rem',textAlign:'center'}}>
-        {[['Total',disp.total,'#a5b4fc'],['Boys',disp.boys,'#93c5fd'],['Girls',disp.girls,'#f9a8d4']].map(([l,v,c])=>(
-          <div key={l}><div style={{fontSize:'2.6rem',fontWeight:900,color:c,lineHeight:1}}>{v}</div><div style={{fontSize:'.6rem',fontWeight:800,textTransform:'uppercase',letterSpacing:'.1em',color:'rgba(255,255,255,.4)'}}>{l}</div></div>
-        ))}
-      </div> : <div>
-        <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'.75rem',marginBottom:'.875rem'}}>
-          {[['Total','total'],['Boys','boys'],['Girls','girls']].map(([l,k])=>(
-            <div key={k}><label style={{display:'block',fontSize:'.62rem',fontWeight:800,color:'rgba(255,255,255,.5)',textTransform:'uppercase',letterSpacing:'.1em',marginBottom:'.3rem'}}>{l}</label>
-              <input className="super-inp" type="number" min="0" value={stTmp[k]} onChange={e=>setSTmp({...stTmp,[k]:parseInt(e.target.value)||0})}/></div>
-          ))}
-        </div>
-        <button onClick={async()=>{setCS(stTmp);try{await fetch('https://studentstat-968de-default-rtdb.firebaseio.com/custom_stats.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({...stTmp,active:true,updatedAt:new Date().toISOString()})});showToast('Stats saved — Statistics display updated','success');}catch(e){showToast('Save failed','error');}setESt(false);}}
-          style={{background:'linear-gradient(135deg,#059669,#047857)',border:'none',borderRadius:'.625rem',padding:'.65rem 1.25rem',color:'white',fontWeight:800,fontSize:'.75rem',cursor:'pointer',display:'flex',alignItems:'center',gap:'.35rem'}}>
-          <Ic.Save/>Save Stats
-        </button>
-      </div>}
-    </div>
-
+    {/* ── Delete by Academic Year ── */}
     <div style={{background:'rgba(220,38,38,.08)',border:'1px solid rgba(220,38,38,.2)',borderRadius:'1.25rem',padding:'1.25rem',marginBottom:'1rem'}}>
-      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:'.625rem',marginBottom:'.875rem'}}>
-        <div><div style={{color:'#f87171',fontWeight:900,fontSize:'.9rem'}}>Students — {selYear}</div>
-        <div style={{color:'rgba(248,113,113,.6)',fontSize:'.72rem'}}>{cur.length} students</div></div>
-        <button onClick={()=>setWO(true)} style={{background:'linear-gradient(135deg,#dc2626,#991b1b)',color:'white',border:'none',borderRadius:'.75rem',padding:'.7rem 1.25rem',fontSize:'.72rem',fontWeight:800,textTransform:'uppercase',letterSpacing:'.06em',cursor:'pointer',display:'flex',alignItems:'center',gap:'.4rem'}}>
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:'.625rem',marginBottom:'1rem'}}>
+        <div>
+          <div style={{color:'#f87171',fontWeight:900,fontSize:'.9rem'}}>🗑 Delete Student Data</div>
+          <div style={{color:'rgba(248,113,113,.6)',fontSize:'.72rem'}}>{students.length} total students across {Object.keys(yearCounts).length} year{Object.keys(yearCounts).length!==1?'s':''}</div>
+        </div>
+        <button onClick={()=>{setWM('all');setWT('');}}
+          style={{background:'linear-gradient(135deg,#dc2626,#991b1b)',color:'white',border:'none',borderRadius:'.75rem',padding:'.6rem 1.1rem',fontSize:'.72rem',fontWeight:800,textTransform:'uppercase',letterSpacing:'.06em',cursor:'pointer',display:'flex',alignItems:'center',gap:'.4rem'}}>
           <Ic.Trash s={13}/>Wipe All Data
         </button>
       </div>
-      {cur.length===0
-        ? <div style={{textAlign:'center',padding:'1.25rem',color:'rgba(255,255,255,.25)',fontSize:'.72rem',fontWeight:800,textTransform:'uppercase'}}>No students in {selYear}</div>
-        : <div style={{maxHeight:'280px',overflowY:'auto',display:'flex',flexDirection:'column',gap:'.35rem'}}>
-          {cur.map(s=><div key={s.id} className="del-row">
-            <div style={{display:'flex',alignItems:'center',gap:'.5rem',minWidth:0}}>
-              <img src={s.photoUrl||`https://ui-avatars.com/api/?name=${encodeURIComponent(s.name)}&background=random`} style={{width:'1.875rem',height:'1.875rem',borderRadius:'.4rem',objectFit:'cover',flexShrink:0}}/>
-              <div style={{minWidth:0}}>
-                <div style={{color:'white',fontWeight:800,fontSize:'.82rem',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{s.name}</div>
-                <div style={{color:'rgba(255,255,255,.4)',fontSize:'.68rem',fontFamily:'monospace'}}>{s.indexNo}</div>
+
+      {/* Dynamic year cards */}
+      {Object.keys(yearCounts).length===0
+        ? <div style={{textAlign:'center',padding:'1.25rem',color:'rgba(255,255,255,.25)',fontSize:'.72rem',fontWeight:800,textTransform:'uppercase'}}>No students in database</div>
+        : <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(180px,1fr))',gap:'.625rem',marginBottom:'1rem'}}>
+            {Object.entries(yearCounts).sort().map(([year,count])=>(
+              <div key={year} style={{background:'rgba(255,255,255,.05)',border:'1px solid rgba(255,255,255,.1)',borderRadius:'.875rem',padding:'.875rem',display:'flex',flexDirection:'column',gap:'.5rem'}}>
+                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                  <div style={{color:'white',fontWeight:900,fontSize:'.9rem'}}>{year}</div>
+                  <span style={{background:'rgba(220,38,38,.2)',color:'#f87171',fontSize:'.62rem',fontWeight:800,padding:'.15rem .5rem',borderRadius:'999px',border:'1px solid rgba(220,38,38,.3)'}}>{count} students</span>
+                </div>
+                <div style={{display:'flex',gap:'.4rem'}}>
+                  <button onClick={()=>{setWM('year');setWY(year);setWT('');}}
+                    style={{flex:1,background:'rgba(220,38,38,.15)',color:'#f87171',border:'1px solid rgba(220,38,38,.25)',borderRadius:'.5rem',padding:'.4rem .5rem',fontSize:'.65rem',fontWeight:800,cursor:'pointer',textTransform:'uppercase',display:'flex',alignItems:'center',justifyContent:'center',gap:'.25rem'}}>
+                    <Ic.Trash s={11}/>Delete {year}
+                  </button>
+                </div>
               </div>
-            </div>
-            <button onClick={()=>setDelS(s)} style={{background:'rgba(220,38,38,.2)',color:'#f87171',border:'1px solid rgba(220,38,38,.3)',borderRadius:'.4rem',padding:'.3rem .625rem',fontSize:'.68rem',fontWeight:800,textTransform:'uppercase',cursor:'pointer',whiteSpace:'nowrap',flexShrink:0}}>Delete</button>
-          </div>)}
-        </div>}
+            ))}
+          </div>
+      }
+
+      {/* Individual student list for selected year */}
+      {Object.entries(yearCounts).sort().map(([year,count])=>{
+        const yrStudents = students.filter(s=>String(s.academicYear)===String(year));
+        return <details key={year} style={{marginBottom:'.4rem'}}>
+          <summary style={{cursor:'pointer',padding:'.5rem .75rem',background:'rgba(255,255,255,.04)',borderRadius:'.625rem',color:'#94a3b8',fontSize:'.72rem',fontWeight:700,listStyle:'none',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+            <span>▶ View {year} students ({count})</span>
+          </summary>
+          <div style={{marginTop:'.4rem',maxHeight:'200px',overflowY:'auto',display:'flex',flexDirection:'column',gap:'.3rem'}}>
+            {yrStudents.map(s=><div key={s.id} className="del-row">
+              <div style={{display:'flex',alignItems:'center',gap:'.5rem',minWidth:0}}>
+                <img src={s.photoUrl||`https://ui-avatars.com/api/?name=${encodeURIComponent(s.name)}&background=random`} style={{width:'1.75rem',height:'1.75rem',borderRadius:'.4rem',objectFit:'cover',flexShrink:0}}/>
+                <div style={{minWidth:0}}>
+                  <div style={{color:'white',fontWeight:800,fontSize:'.8rem',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{s.name}</div>
+                  <div style={{color:'rgba(255,255,255,.4)',fontSize:'.65rem',fontFamily:'monospace'}}>{s.indexNo}</div>
+                </div>
+              </div>
+              <button onClick={()=>setDelS(s)} style={{background:'rgba(220,38,38,.2)',color:'#f87171',border:'1px solid rgba(220,38,38,.3)',borderRadius:'.4rem',padding:'.25rem .5rem',fontSize:'.65rem',fontWeight:800,textTransform:'uppercase',cursor:'pointer',whiteSpace:'nowrap',flexShrink:0}}>Delete</button>
+            </div>)}
+          </div>
+        </details>;
+      })}
     </div>
 
     <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(260px,1fr))',gap:'1rem',marginBottom:'1rem'}}>
@@ -1617,6 +1602,15 @@ const App = () => {
       addLog('Full system wipe');
     }catch(e){throw e;}
   };
+
+  // Delete all students for a specific academic year only
+  const wipeYear = async (year) => {
+    try{
+      const toDelete = students.filter(s=>String(s.academicYear)===String(year));
+      for(const s of toDelete) await fbDEL('students/'+s.id);
+      addLog(`Deleted ${toDelete.length} students from ${year}`);
+    }catch(e){throw e;}
+  };
   const restoreDb = async data=>{
     try{
       await fbDEL('students');await fbDEL('grades');await fbDEL('clubs');
@@ -1654,25 +1648,38 @@ const App = () => {
     setSyncing(false);
   };
 
-  // CSV import — saves students to Firebase under selected academic year
+  // CSV import — saves ALL students + auto-creates new classes/clubs/houses
   const csvImport = async (rows, year, onProgress) => {
-    let done = 0;
-    // Get existing students to avoid duplicates (match by indexNo)
-    const r = await fetch(`${FB_URL}/students.json`);
-    const existing = r.ok ? await r.json() : {};
-    const byIdx = {};
-    if(existing) Object.values(existing).forEach(s=>{ if(s&&s.indexNo) byIdx[s.indexNo]=s; });
 
+    // ── Step 1: Extract unique names from CSV ──
+    const csvGrades = [...new Set(rows.map(r=>r.grade).filter(Boolean))];
+    const csvClubs  = [...new Set(rows.map(r=>r.club).filter(Boolean))];
+    const csvHouses = [...new Set(rows.map(r=>r.house).filter(Boolean))];
+
+    // ── Step 2: Get existing names from Firebase (avoid duplicates) ──
+    const existingGradeNames = grades.map(g=>g.name.toLowerCase().trim());
+    const existingClubNames  = clubs.map(c=>c.name.toLowerCase().trim());
+    const existingHouseNames = houses.map(h=>h.name.toLowerCase().trim());
+
+    // ── Step 3: Save only NEW names (not already in Firebase) ──
+    const newGrades = csvGrades.filter(n=>!existingGradeNames.includes(n.toLowerCase().trim()));
+    const newClubs  = csvClubs.filter(n=>!existingClubNames.includes(n.toLowerCase().trim()));
+    const newHouses = csvHouses.filter(n=>!existingHouseNames.includes(n.toLowerCase().trim()));
+
+    for(const name of newGrades) await fbPOST('grades',  {name, teachers:{}});
+    for(const name of newClubs)  await fbPOST('clubs',   {name, teachers:{}});
+    for(const name of newHouses) await fbPOST('houses',  {name, teachers:{}});
+
+    if(newGrades.length||newClubs.length||newHouses.length) {
+      addLog(`Auto-created: ${newGrades.length} classes, ${newClubs.length} clubs, ${newHouses.length} houses`);
+    }
+
+    // ── Step 4: Save all students ──
+    let done = 0;
     for(const s of rows) {
-      // Force academic year to selected year
       const student = {...s, academicYear: year};
-      const ex = byIdx[student.indexNo];
-      if(ex) {
-        await fbPUT('students/'+ex.id, {...student, id:ex.id});
-      } else {
-        const key = await fbPOST('students', student);
-        await fbPUT('students/'+key, {...student, id:key});
-      }
+      const key = await fbPOST('students', student);
+      await fbPUT('students/'+key, {...student, id:key});
       done++;
       onProgress(Math.round(done/rows.length*100));
     }
@@ -1730,7 +1737,7 @@ const App = () => {
           : <SuperView logs={logs}
               onSetAdminPass={p=>{setAP(p);addLog('Admin pass changed');}}
               onSetSuperPass={p=>{setSP(p);addLog('Super pass changed');}}
-              onWipe={wipeAll} onRestore={restoreDb}
+              onWipe={wipeAll} onWipeYear={wipeYear} onRestore={restoreDb}
               students={students} grades={grades} clubs={clubs} houses={houses} years={years}
               selYear={selYear} showToast={showToast}/>
         )}

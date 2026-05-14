@@ -121,17 +121,25 @@ tr:hover td{background:#f8fafc}
 .login-box{padding:2.5rem;border-radius:2rem;max-width:380px;margin:4rem auto}
 .w-full{width:100%}
 .hidden{display:none!important}
-/* ── Category cards ── */
 .cat-card{background:white;border:1px solid #e2e8f0;border-radius:1.25rem;overflow:hidden;margin-bottom:.625rem}
 .cat-header{display:flex;align-items:center;gap:.75rem;padding:.875rem 1.125rem;cursor:pointer;transition:background .15s}
 .cat-header:hover{background:#f8fafc}
 .cat-icon{width:2.5rem;height:2.5rem;border-radius:.625rem;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:1rem;flex-shrink:0}
 .cat-body{border-top:1px solid #f1f5f9;padding:1rem 1.125rem;background:#fafbff}
 .teacher-row{display:flex;align-items:center;gap:.625rem;padding:.5rem .75rem;background:white;border-radius:.75rem;border:1px solid #e2e8f0;margin-bottom:.375rem}
-.teacher-inp-row{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.625rem}
-/* ── New category creation modal ── */
 .create-modal{background:white;border-radius:1.75rem;width:100%;max-width:620px;padding:1.75rem;box-shadow:0 24px 48px rgba(0,0,0,.2);margin:auto;max-height:90vh;overflow-y:auto}
 .teacher-entry{display:flex;gap:.5rem;align-items:center;padding:.625rem .875rem;background:#f8fafc;border-radius:.75rem;border:1px solid #e2e8f0;margin-bottom:.4rem}
+
+/* ── Dynamic category grid in admin students tab ── */
+.cat-summary-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:.75rem;margin-bottom:1rem}
+.cat-summary-card{border-radius:1rem;padding:.875rem 1rem;border:1.5px solid;cursor:pointer;transition:all .15s;position:relative}
+.cat-summary-card:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,0,0,.08)}
+.cat-summary-card.selected{box-shadow:0 0 0 3px currentColor}
+.cat-summary-lbl{font-size:.58rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em;opacity:.65;margin-bottom:.2rem}
+.cat-summary-name{font-size:.9rem;font-weight:900;margin-bottom:.3rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cat-summary-count{font-size:1.6rem;font-weight:900;line-height:1;letter-spacing:-.03em}
+.cat-summary-sub{font-size:.62rem;font-weight:700;opacity:.6;margin-top:.15rem}
+.dl-btn{display:inline-flex;align-items:center;gap:.3rem;padding:.3rem .625rem;border-radius:.5rem;border:1.5px solid;font-size:.62rem;font-weight:800;cursor:pointer;transition:all .15s;background:white;position:absolute;top:.625rem;right:.625rem}
 </style>
 </head>
 <body>
@@ -142,6 +150,17 @@ const FB_URL = 'https://student-management-syste-b952d-default-rtdb.firebaseio.c
 const GS_KEY = 'AIzaSyBDaPGla2HilWnBJLcd3zA8WbEARv1bc6g';
 const DEFAULT_SHEET = 'https://docs.google.com/spreadsheets/d/1jRiotMJ-zOwxrfYrpaofzXxmgFdQmT_piVYcgLYqKr0/edit?usp=sharing';
 const INIT_YEARS = ['2025','2026','2027','2028'];
+
+// ── AUTO CURRENT YEAR HELPER ──────────────────────────────
+// Returns the best matching year from the available list
+const getCurrentYear = (years) => {
+  const now = String(new Date().getFullYear());
+  if (years.includes(now)) return now;
+  // Pick nearest year to current
+  const sorted = [...years].sort();
+  for (const y of sorted) { if (y >= now) return y; }
+  return sorted[sorted.length - 1] || now;
+};
 
 const fbDEL  = path => fetch(`${FB_URL}/${path}.json`,{method:'DELETE'});
 const fbPUT  = (path,d) => fetch(`${FB_URL}/${path}.json`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});
@@ -176,7 +195,6 @@ const Toast = ({msg,type,onClose}) => {
   return <div className={`toast toast-${type}`}><div className="toast-dot"/><span style={{wordBreak:'break-word'}}>{msg}</span></div>;
 };
 
-// ── Fields ───────────────────────────────────────────────
 const Field = ({label,children}) => <div><label className="lbl">{label}</label>{children}</div>;
 const TxtIn = ({label,value,onChange,placeholder,type='text',required}) => (
   <Field label={label}><input className="inp" type={type} value={value||''} onChange={e=>onChange(e.target.value)} placeholder={placeholder} required={required}/></Field>
@@ -217,9 +235,20 @@ const StatStrip = ({total,boys,girls,year}) => (
   </div>
 );
 
-// ── Category Create/Edit Modal (with multi-teacher) ──────
+// ── CSV Export helper ────────────────────────────────────
+const exportStudentsCSV = (students, filename) => {
+  const headers = ['Index Number','Full Name','National ID','Date of Birth','Gender','Grade / Class','Club','House','Email','Phone','Parent / Guardian','Address','Academic Year','Photo URL'];
+  const escape  = v => { const s=String(v||''); return s.includes(',')||s.includes('"')||s.includes('\n') ? '"'+s.replace(/"/g,'""')+'"' : s; };
+  const rows    = students.map(s=>[s.indexNo,s.name,s.idNo,s.dob,s.gender,s.grade,s.club,s.house,s.email,s.phone,s.parentName,s.address,s.academicYear,s.photoUrl].map(escape).join(','));
+  const csv     = [headers.join(','), ...rows].join('\n');
+  const blob    = new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  const url     = URL.createObjectURL(blob);
+  const a       = document.createElement('a'); a.href=url; a.download=filename; a.click();
+  URL.revokeObjectURL(url);
+};
+
+// ── Category Create/Edit Modal ───────────────────────────
 const CatModal = ({type,item,fbNode,onClose,showToast}) => {
-  // item = existing item to edit, null = create new
   const isEdit = !!item;
   const label  = type==='classes'?'Class':type==='clubs'?'Club':'House';
   const accent = type==='classes'?'#059669':type==='clubs'?'#7c3aed':'#dc2626';
@@ -247,16 +276,13 @@ const CatModal = ({type,item,fbNode,onClose,showToast}) => {
     setSaving(true);
     try {
       if(isEdit) {
-        // Update name
         await fbPUT(`${fbNode}/${item.id}/name`, name.trim());
-        // Re-save all teachers: delete old, add all current
         await fbDEL(`${fbNode}/${item.id}/teachers`);
         for(const t of teachers) {
           await fbPOST(`${fbNode}/${item.id}/teachers`,{name:t.name,role:t.role});
         }
         showToast(`${label} updated`,'success');
       } else {
-        // Create new
         const id = await fbPOST(fbNode, {name:name.trim()});
         for(const t of teachers) {
           await fbPOST(`${fbNode}/${id}/teachers`,{name:t.name,role:t.role});
@@ -278,21 +304,16 @@ const CatModal = ({type,item,fbNode,onClose,showToast}) => {
         <button className="btn-icon btn-ghost" onClick={onClose}><Ic.X/></button>
       </div>
       <form onSubmit={save}>
-        {/* Name field */}
         <div style={{marginBottom:'1.25rem'}}>
           <label className="lbl">{label} Name</label>
           <input className="inp" value={name} onChange={e=>setName(e.target.value)}
             placeholder={`e.g. ${type==='classes'?'Grade 7A':type==='clubs'?'Science Club':'Blue House'}…`} required/>
         </div>
-
-        {/* Teachers section */}
         <div style={{marginBottom:'1rem'}}>
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'.625rem'}}>
             <label className="lbl" style={{margin:0}}>Teachers Assigned</label>
             <span style={{fontSize:'.65rem',fontWeight:700,color:'#94a3b8'}}>{teachers.length} teacher{teachers.length!==1?'s':''}</span>
           </div>
-
-          {/* Existing teachers in list */}
           {teachers.length>0 && <div style={{marginBottom:'.75rem'}}>
             {teachers.map(t=>(
               <div key={t.key} className="teacher-entry">
@@ -308,8 +329,6 @@ const CatModal = ({type,item,fbNode,onClose,showToast}) => {
               </div>
             ))}
           </div>}
-
-          {/* Add teacher inputs */}
           <div style={{background:'#f8fafc',border:'1.5px dashed #e2e8f0',borderRadius:'.875rem',padding:'.875rem'}}>
             <div style={{fontSize:'.65rem',fontWeight:800,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'.08em',marginBottom:'.5rem'}}>Add Teacher</div>
             <div style={{display:'flex',gap:'.5rem',flexWrap:'wrap'}}>
@@ -327,10 +346,9 @@ const CatModal = ({type,item,fbNode,onClose,showToast}) => {
                 <Ic.Plus s={14}/>Add
               </button>
             </div>
-            <div style={{fontSize:'.62rem',color:'#94a3b8',marginTop:'.375rem'}}>Press Enter or click Add — you can add as many teachers as needed</div>
+            <div style={{fontSize:'.62rem',color:'#94a3b8',marginTop:'.375rem'}}>Press Enter or click Add</div>
           </div>
         </div>
-
         <div style={{display:'flex',gap:'.625rem',marginTop:'1.25rem'}}>
           <button type="button" className="btn btn-ghost w-full" style={{justifyContent:'center',padding:'.8rem'}} onClick={onClose}>Cancel</button>
           <button type="submit" className="btn w-full" disabled={saving||!name.trim()}
@@ -343,7 +361,7 @@ const CatModal = ({type,item,fbNode,onClose,showToast}) => {
   </div>;
 };
 
-// ── Category Card (expandable, show teachers) ────────────
+// ── Category Card ────────────────────────────────────────
 const CatCard = ({item,type,fbNode,onDelete,showToast}) => {
   const [open,   setOpen]   = React.useState(false);
   const [editing,setEditing]= React.useState(false);
@@ -373,7 +391,6 @@ const CatCard = ({item,type,fbNode,onDelete,showToast}) => {
   return <>
     {editing && <CatModal type={type} item={item} fbNode={fbNode} onClose={()=>setEditing(false)} showToast={showToast}/>}
     <div className="cat-card">
-      {/* Header */}
       <div className="cat-header" onClick={()=>setOpen(!open)}>
         <div className="cat-icon" style={{background:lightBg,border:`1px solid ${lightBd}`,color:accent}}>
           {item.name.charAt(0).toUpperCase()}
@@ -389,10 +406,7 @@ const CatCard = ({item,type,fbNode,onDelete,showToast}) => {
           <button className="btn-icon btn-del" title="Delete" onClick={onDelete}><Ic.Trash/></button>
         </div>
       </div>
-
-      {/* Expanded body */}
       {open && <div className="cat-body">
-        {/* Teachers list */}
         {teachers.length===0
           ? <div style={{textAlign:'center',padding:'.875rem',color:'#cbd5e1',fontWeight:800,fontSize:'.68rem',textTransform:'uppercase',letterSpacing:'.08em'}}>No teachers assigned yet</div>
           : teachers.map(([tk,tv])=>(
@@ -408,14 +422,12 @@ const CatCard = ({item,type,fbNode,onDelete,showToast}) => {
               </div>
             ))
         }
-
-        {/* Add teacher inline */}
         {addingT
           ? <div style={{marginTop:'.625rem',background:'white',border:'1px solid #e2e8f0',borderRadius:'.875rem',padding:'.875rem'}}>
               <div style={{fontSize:'.65rem',fontWeight:800,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'.08em',marginBottom:'.5rem'}}>Add Teacher</div>
               <div style={{display:'flex',gap:'.4rem',flexWrap:'wrap',marginBottom:'.4rem'}}>
                 <input className="inp" value={tName} onChange={e=>setTN(e.target.value)} placeholder="Teacher name…" style={{flex:2,minWidth:'130px'}}/>
-                <input className="inp" value={tRole} onChange={e=>setTR(e.target.value)} placeholder="Role (e.g. Head Teacher)…" style={{flex:2,minWidth:'130px'}}/>
+                <input className="inp" value={tRole} onChange={e=>setTR(e.target.value)} placeholder="Role…" style={{flex:2,minWidth:'130px'}}/>
               </div>
               <div style={{display:'flex',gap:'.4rem'}}>
                 <button className="btn btn-emerald btn-sm" onClick={addTeacher} disabled={!tName.trim()||saving}>
@@ -434,12 +446,222 @@ const CatCard = ({item,type,fbNode,onDelete,showToast}) => {
   </>;
 };
 
+// ── Dynamic Category Summary Cards (admin students tab) ──
+// Grid icon
+const GridIcon = ({s=15})=><svg width={s} height={s} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>;
+const ListIcon = ({s=15})=><svg width={s} height={s} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>;
+
+const CategorySummaryCards = ({students, selYear, grades, clubs, houses, showToast}) => {
+  const [activeType, setActiveType] = React.useState('classes');
+  const [viewMode,   setViewMode]   = React.useState('grid'); // 'grid' | 'list'
+  const [expanded,   setExpanded]   = React.useState({}); // {name: bool} — list rows expanded
+
+  const byYear = students.filter(s=>String(s.academicYear)===String(selYear));
+
+  const types = [
+    {id:'classes', label:'Classes', list:grades, field:'grade', accent:'#059669', bg:'#ecfdf5', bd:'#a7f3d0', lightAccent:'#d1fae5'},
+    {id:'clubs',   label:'Clubs',   list:clubs,  field:'club',  accent:'#7c3aed', bg:'#f5f3ff', bd:'#ddd6fe', lightAccent:'#ede9fe'},
+    {id:'houses',  label:'Houses',  list:houses, field:'house', accent:'#dc2626', bg:'#fef2f2', bd:'#fecaca', lightAccent:'#fee2e2'},
+  ];
+
+  const active = types.find(t=>t.id===activeType);
+
+  const counts = React.useMemo(()=>{
+    const map = {};
+    byYear.forEach(s=>{
+      const val = s[active.field];
+      if(val) { if(!map[val]) map[val]={total:0,boys:0,girls:0,students:[]}; map[val].total++; if(s.gender==='Male') map[val].boys++; else map[val].girls++; map[val].students.push(s); }
+    });
+    return map;
+  },[byYear, active]);
+
+  const doDownloadCat = (e, catName, studsInCat) => {
+    e.stopPropagation();
+    if(!studsInCat.length){ showToast(`No students in ${catName}`,'error'); return; }
+    const safeName = catName.replace(/[^a-z0-9]/gi,'_');
+    exportStudentsCSV(studsInCat, `${activeType}_${safeName}_${selYear}.csv`);
+    showToast(`Downloaded ${studsInCat.length} students — ${catName}`,'success');
+  };
+
+  const doDownloadAll = () => {
+    if(!active.list.length){ showToast(`No ${active.label} to export`,'error'); return; }
+    let count=0;
+    active.list.forEach(item => {
+      const studs = byYear.filter(s=>s[active.field]===item.name);
+      if(studs.length) { const safeName=item.name.replace(/[^a-z0-9]/gi,'_'); exportStudentsCSV(studs,`${activeType}_${safeName}_${selYear}.csv`); count++; }
+    });
+    showToast(`Downloaded ${count} separate CSV files`,'success');
+  };
+
+  const toggleExpand = name => setExpanded(p=>({...p,[name]:!p[name]}));
+
+  // ── Grid item ──
+  const GridCard = ({item}) => {
+    const c = counts[item.name]||{total:0,boys:0,girls:0,students:[]};
+    const teachers = item.teachers ? Object.values(item.teachers) : [];
+    const teacherDisplay = teachers.length>0 ? teachers.map(t=>t.name).join(', ') : null;
+    return <div className="cat-summary-card" style={{background:active.bg,borderColor:active.bd,color:active.accent,userSelect:'none'}}>
+      {/* Stat bar across bottom */}
+      <div style={{position:'absolute',bottom:0,left:0,right:0,height:'3px',background:active.bd,borderRadius:'0 0 .875rem .875rem',overflow:'hidden'}}>
+        <div style={{height:'100%',width:c.total>0?`${Math.round(c.boys/c.total*100)}%`:'0%',background:active.accent,transition:'width .4s'}}/>
+      </div>
+      <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',marginBottom:'.5rem'}}>
+        <div style={{width:'2rem',height:'2rem',borderRadius:'.5rem',background:active.lightAccent||active.bd,border:`1px solid ${active.bd}`,display:'flex',alignItems:'center',justifyContent:'center',fontWeight:900,fontSize:'1rem',color:active.accent,flexShrink:0}}>
+          {item.name.charAt(0).toUpperCase()}
+        </div>
+        <button onClick={e=>doDownloadCat(e,item.name,counts[item.name]?.students||[])}
+          style={{background:active.accent,color:'white',border:'none',borderRadius:'.375rem',padding:'.2rem .45rem',fontSize:'.58rem',fontWeight:800,cursor:'pointer',display:'flex',alignItems:'center',gap:'.2rem',flexShrink:0}}>
+          <Ic.Download s={10}/>CSV
+        </button>
+      </div>
+      <div style={{fontWeight:900,fontSize:'.88rem',color:'#0f172a',marginBottom:'.15rem',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{item.name}</div>
+      <div style={{display:'flex',alignItems:'baseline',gap:'.35rem',marginBottom:'.2rem'}}>
+        <span style={{fontSize:'2rem',fontWeight:900,lineHeight:1,color:active.accent,letterSpacing:'-.04em'}}>{c.total}</span>
+        <span style={{fontSize:'.65rem',fontWeight:700,color:'#94a3b8'}}>students</span>
+      </div>
+      <div style={{display:'flex',gap:'.5rem'}}>
+        <span style={{fontSize:'.62rem',fontWeight:800,color:'#1d4ed8',background:'#eff6ff',padding:'.1rem .4rem',borderRadius:'.3rem'}}>{c.boys}B</span>
+        <span style={{fontSize:'.62rem',fontWeight:800,color:'#be185d',background:'#fdf2f8',padding:'.1rem .4rem',borderRadius:'.3rem'}}>{c.girls}G</span>
+      </div>
+      {teacherDisplay&&<div style={{fontSize:'.6rem',fontWeight:700,color:'#64748b',marginTop:'.35rem',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}} title={teacherDisplay}>👤 {teacherDisplay}</div>}
+    </div>;
+  };
+
+  // ── List item ──
+  const ListRow = ({item}) => {
+    const c = counts[item.name]||{total:0,boys:0,girls:0,students:[]};
+    const teachers = item.teachers ? Object.values(item.teachers) : [];
+    const isOpen = !!expanded[item.name];
+    const pct = c.total>0 ? Math.round(c.boys/c.total*100) : 0;
+    return <div style={{background:'white',border:`1.5px solid ${active.bd}`,borderRadius:'1rem',marginBottom:'.5rem',overflow:'hidden'}}>
+      {/* Row header */}
+      <div style={{display:'flex',alignItems:'center',gap:'.75rem',padding:'.75rem 1rem',cursor:'pointer',transition:'background .15s'}}
+        onClick={()=>toggleExpand(item.name)}>
+        {/* Letter avatar */}
+        <div style={{width:'2.25rem',height:'2.25rem',borderRadius:'.5rem',background:active.bg,border:`1px solid ${active.bd}`,display:'flex',alignItems:'center',justifyContent:'center',fontWeight:900,fontSize:'.95rem',color:active.accent,flexShrink:0}}>
+          {item.name.charAt(0).toUpperCase()}
+        </div>
+        {/* Name + teacher */}
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{fontWeight:900,color:'#0f172a',fontSize:'.9rem'}}>{item.name}</div>
+          {teachers.length>0&&<div style={{fontSize:'.62rem',fontWeight:700,color:'#94a3b8',marginTop:'.05rem',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>👤 {teachers.map(t=>t.name).join(', ')}</div>}
+        </div>
+        {/* Stats bar */}
+        <div style={{display:'flex',gap:'.4rem',alignItems:'center',flexShrink:0}}>
+          <span style={{fontSize:'.7rem',fontWeight:800,color:'#1d4ed8',background:'#eff6ff',padding:'.15rem .5rem',borderRadius:'.375rem'}}>{c.boys}B</span>
+          <span style={{fontSize:'.7rem',fontWeight:800,color:'#be185d',background:'#fdf2f8',padding:'.15rem .5rem',borderRadius:'.375rem'}}>{c.girls}G</span>
+          <span style={{fontSize:'1.1rem',fontWeight:900,color:active.accent,minWidth:'2rem',textAlign:'right'}}>{c.total}</span>
+          {/* Progress pill */}
+          <div style={{width:'50px',height:'6px',background:active.bd,borderRadius:'999px',overflow:'hidden',flexShrink:0}}>
+            <div style={{height:'100%',width:pct+'%',background:active.accent,borderRadius:'999px',transition:'width .4s'}}/>
+          </div>
+          <button onClick={e=>doDownloadCat(e,item.name,c.students)}
+            style={{background:active.bg,color:active.accent,border:`1px solid ${active.bd}`,borderRadius:'.4rem',padding:'.25rem .5rem',fontSize:'.62rem',fontWeight:800,cursor:'pointer',display:'flex',alignItems:'center',gap:'.2rem',flexShrink:0}}>
+            <Ic.Download s={10}/>CSV
+          </button>
+          <span style={{color:'#94a3b8',fontSize:'.75rem',flexShrink:0}}>{isOpen?'▲':'▼'}</span>
+        </div>
+      </div>
+      {/* Expanded student list */}
+      {isOpen&&<div style={{borderTop:`1px solid ${active.bd}`,background:active.bg,padding:'.625rem 1rem',maxHeight:'220px',overflowY:'auto'}}>
+        {c.students.length===0
+          ? <div style={{textAlign:'center',padding:'.75rem',color:'#94a3b8',fontSize:'.72rem',fontWeight:800,textTransform:'uppercase'}}>No students in {selYear}</div>
+          : <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(220px,1fr))',gap:'.35rem'}}>
+              {c.students.map(s=><div key={s.id} style={{display:'flex',alignItems:'center',gap:'.4rem',background:'white',borderRadius:'.5rem',padding:'.35rem .5rem',border:'1px solid #f1f5f9'}}>
+                <img src={s.photoUrl||`https://ui-avatars.com/api/?name=${encodeURIComponent(s.name)}&background=random&size=64`}
+                  style={{width:'1.75rem',height:'1.75rem',borderRadius:'.35rem',objectFit:'cover',flexShrink:0}}/>
+                <div style={{minWidth:0}}>
+                  <div style={{fontWeight:700,fontSize:'.75rem',color:'#0f172a',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{s.name}</div>
+                  <div style={{fontSize:'.6rem',color:'#94a3b8',fontFamily:'monospace'}}>{s.indexNo}</div>
+                </div>
+                <span className={`badge ${s.gender==='Male'?'badge-blue':'badge-pink'}`} style={{flexShrink:0,marginLeft:'auto'}}>{s.gender==='Male'?'B':'G'}</span>
+              </div>)}
+            </div>
+        }
+      </div>}
+    </div>;
+  };
+
+  const totalStudents = active.list.reduce((sum,item)=>{
+    const c=counts[item.name]; return sum+(c?c.total:0);
+  },0);
+
+  return <div className="card-xl" style={{padding:'1.125rem 1.25rem',marginBottom:'1rem'}}>
+    {/* Header */}
+    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:'.5rem',marginBottom:'1rem'}}>
+      <div>
+        <div style={{fontWeight:900,fontSize:'.95rem',color:'#0f172a'}}>📊 {active.label} Overview — {selYear}</div>
+        <div style={{fontSize:'.65rem',color:'#94a3b8',marginTop:'.1rem'}}>
+          {active.list.length} {active.label.toLowerCase()} · {totalStudents} students enrolled
+        </div>
+      </div>
+      <div style={{display:'flex',gap:'.35rem',flexWrap:'wrap',alignItems:'center'}}>
+        {/* Type pills */}
+        {types.map(t=>(
+          <button key={t.id} onClick={()=>setActiveType(t.id)}
+            style={{padding:'.3rem .75rem',borderRadius:'999px',border:`1.5px solid ${activeType===t.id?t.accent:'#e2e8f0'}`,background:activeType===t.id?t.bg:'#f8fafc',color:activeType===t.id?t.accent:'#64748b',fontWeight:800,fontSize:'.68rem',cursor:'pointer',transition:'all .14s'}}>
+            {t.label} <span style={{opacity:.7}}>({t.list.length})</span>
+          </button>
+        ))}
+        {/* Divider */}
+        <div style={{width:'1px',height:'20px',background:'#e2e8f0',margin:'0 .1rem'}}/>
+        {/* View toggle */}
+        <div style={{display:'flex',background:'#f1f5f9',borderRadius:'.5rem',padding:'.15rem',gap:'.1rem'}}>
+          <button onClick={()=>setViewMode('grid')}
+            style={{padding:'.3rem .5rem',borderRadius:'.375rem',border:'none',cursor:'pointer',background:viewMode==='grid'?'white':'transparent',color:viewMode==='grid'?'#4f46e5':'#94a3b8',boxShadow:viewMode==='grid'?'0 1px 3px rgba(0,0,0,.1)':'none',transition:'all .15s',display:'flex',alignItems:'center'}}>
+            <GridIcon s={14}/>
+          </button>
+          <button onClick={()=>setViewMode('list')}
+            style={{padding:'.3rem .5rem',borderRadius:'.375rem',border:'none',cursor:'pointer',background:viewMode==='list'?'white':'transparent',color:viewMode==='list'?'#4f46e5':'#94a3b8',boxShadow:viewMode==='list'?'0 1px 3px rgba(0,0,0,.1)':'none',transition:'all .15s',display:'flex',alignItems:'center'}}>
+            <ListIcon s={14}/>
+          </button>
+        </div>
+        {/* Download all */}
+        {active.list.length>0&&<button onClick={doDownloadAll}
+          style={{padding:'.35rem .75rem',borderRadius:'.5rem',border:`1.5px solid ${active.accent}`,background:active.accent,color:'white',fontWeight:800,fontSize:'.68rem',cursor:'pointer',display:'flex',alignItems:'center',gap:'.3rem'}}>
+          <Ic.Download s={11}/>All CSV
+        </button>}
+      </div>
+    </div>
+
+    {/* Summary stat bar */}
+    {active.list.length>0&&<div style={{display:'flex',gap:'.5rem',marginBottom:'.875rem',flexWrap:'wrap'}}>
+      {[
+        {l:'Total',v:totalStudents,bg:'#f8fafc',c:'#0f172a'},
+        {l:'Boys',v:Object.values(counts).reduce((s,c)=>s+c.boys,0),bg:'#eff6ff',c:'#1d4ed8'},
+        {l:'Girls',v:Object.values(counts).reduce((s,c)=>s+c.girls,0),bg:'#fdf2f8',c:'#be185d'},
+        {l:active.id==='classes'?'Classes':active.id==='clubs'?'Clubs':'Houses',v:active.list.length,bg:active.bg,c:active.accent},
+      ].map(({l,v,bg,c})=>(
+        <div key={l} style={{background:bg,borderRadius:'.625rem',padding:'.35rem .75rem',display:'flex',alignItems:'center',gap:'.4rem',border:`1px solid ${active.bd}`}}>
+          <span style={{fontSize:'.62rem',fontWeight:800,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'.06em'}}>{l}</span>
+          <span style={{fontSize:'1rem',fontWeight:900,color:c,lineHeight:1}}>{v}</span>
+        </div>
+      ))}
+    </div>}
+
+    {/* Content */}
+    {active.list.length===0
+      ? <div style={{textAlign:'center',padding:'2rem',color:'#cbd5e1',fontWeight:800,fontSize:'.72rem',textTransform:'uppercase',letterSpacing:'.08em'}}>
+          No {active.label} created yet — go to the {active.label} tab to add some
+        </div>
+      : viewMode==='grid'
+        ? <div className="cat-summary-grid">
+            {active.list.map(item=><GridCard key={item.id||item.name} item={item}/>)}
+          </div>
+        : <div>
+            {active.list.map(item=><ListRow key={item.id||item.name} item={item}/>)}
+          </div>
+    }
+  </div>;
+};
+
 // ── Public View ──────────────────────────────────────────
-const PublicView = ({students,grades,clubs,houses,years,selYear,setSelYear}) => {
-  const [tab,setTab]       = React.useState('students');
-  const [filter,setFilter] = React.useState('');
-  const [search,setSearch] = React.useState('');
-  const [query,setQuery]   = React.useState('');
+const PublicView = ({students,grades,clubs,houses,years,selYear,setSelYear,showToast}) => {
+  const [tab,setTab]         = React.useState('students');
+  const [filter,setFilter]   = React.useState('');
+  const [search,setSearch]   = React.useState('');
+  const [query,setQuery]     = React.useState('');
+  const [showOverview,setShowOverview] = React.useState(false);
 
   const byYear = React.useMemo(()=>students.filter(s=>String(s.academicYear)===String(selYear)),[students,selYear]);
   const live   = {total:byYear.length,boys:byYear.filter(s=>s.gender==='Male').length,girls:byYear.filter(s=>s.gender==='Female').length};
@@ -471,10 +693,39 @@ const PublicView = ({students,grades,clubs,houses,years,selYear,setSelYear}) => 
 
   return <div style={{paddingBottom:'4rem'}}>
     <div className="card-xl" style={{padding:'1.25rem 1.5rem',marginBottom:'1rem'}}>
-      <h2 style={{fontSize:'1.4rem',fontWeight:900,color:'#0f172a',letterSpacing:'-.02em',marginBottom:'.2rem'}}>Student Information Portal</h2>
-      <p style={{fontSize:'.78rem',color:'#94a3b8'}}>Access academic records, class lists and institutional rosters</p>
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:'.75rem'}}>
+        <div>
+          <h2 style={{fontSize:'1.4rem',fontWeight:900,color:'#0f172a',letterSpacing:'-.02em',marginBottom:'.2rem'}}>Student Information Portal</h2>
+          <p style={{fontSize:'.78rem',color:'#94a3b8'}}>Access academic records, class lists and institutional rosters</p>
+        </div>
+        {/* ── Overview toggle button ── */}
+        <button
+          onClick={()=>setShowOverview(!showOverview)}
+          style={{
+            display:'flex',alignItems:'center',gap:'.5rem',
+            padding:'.6rem 1.1rem',borderRadius:'.875rem',border:'none',cursor:'pointer',
+            fontFamily:'inherit',fontWeight:800,fontSize:'.78rem',letterSpacing:'.04em',
+            transition:'all .2s',
+            background: showOverview
+              ? 'linear-gradient(135deg,#059669,#047857)'
+              : 'linear-gradient(135deg,#f0fdf4,#dcfce7)',
+            color: showOverview ? 'white' : '#059669',
+            boxShadow: showOverview ? '0 4px 14px rgba(5,150,105,.3)' : '0 1px 4px rgba(0,0,0,.06)',
+          }}>
+          <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+          </svg>
+          {showOverview ? 'Hide Overview' : 'Classes Overview'}
+        </button>
+      </div>
     </div>
     <StatStrip total={live.total} boys={live.boys} girls={live.girls} year={selYear}/>
+
+    {/* ── Overview panel — shown only when button is clicked ── */}
+    {showOverview && <div style={{marginBottom:'1rem',animation:'slideDown .25s ease-out'}}>
+      <style>{`@keyframes slideDown{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}`}</style>
+      <CategorySummaryCards students={students} selYear={selYear} grades={grades} clubs={clubs} houses={houses} showToast={showToast||((m,t)=>{})}/>
+    </div>}
     {years.length>1&&<div className="card" style={{padding:'.875rem 1.125rem',marginBottom:'1rem',display:'flex',alignItems:'center',gap:'.75rem',flexWrap:'wrap'}}>
       <span style={{fontSize:'.62rem',fontWeight:800,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'.09em',whiteSpace:'nowrap'}}>Year</span>
       <div style={{display:'flex',gap:'.35rem',flexWrap:'wrap'}}>
@@ -564,38 +815,26 @@ const EmptyMsg = ({msg}) => (
   </div></div>
 );
 
-
 // ── CSV Upload & Restore ─────────────────────────────────
 const CsvUpload = ({years,grades,clubs,houses,onImport,showToast}) => {
   const [dragging,setDrag]  = React.useState(false);
-  const [preview, setPrev]  = React.useState(null); // {year, rows, mapped}
+  const [preview, setPrev]  = React.useState(null);
   const [selYear, setSelY]  = React.useState('');
   const [saving,  setSaving]= React.useState(false);
   const [progress,setProg]  = React.useState(0);
   const fileRef = React.useRef();
 
   const CSV_FIELDS = [
-    {key:'indexNo',    label:'Index Number', required:true},
-    {key:'name',       label:'Full Name',    required:true},
-    {key:'idNo',       label:'National ID'},
-    {key:'dob',        label:'Date of Birth'},
-    {key:'gender',     label:'Gender'},
-    {key:'grade',      label:'Grade / Class'},
-    {key:'club',       label:'Club'},
-    {key:'house',      label:'House'},
-    {key:'email',      label:'Email'},
-    {key:'phone',      label:'Phone'},
-    {key:'parentName', label:'Parent / Guardian'},
-    {key:'address',    label:'Address'},
-    {key:'academicYear',label:'Academic Year'},
-    {key:'photoUrl',   label:'Photo URL'},
+    {key:'indexNo',label:'Index Number',required:true},{key:'name',label:'Full Name',required:true},
+    {key:'idNo',label:'National ID'},{key:'dob',label:'Date of Birth'},{key:'gender',label:'Gender'},
+    {key:'grade',label:'Grade / Class'},{key:'club',label:'Club'},{key:'house',label:'House'},
+    {key:'email',label:'Email'},{key:'phone',label:'Phone'},{key:'parentName',label:'Parent / Guardian'},
+    {key:'address',label:'Address'},{key:'academicYear',label:'Academic Year'},{key:'photoUrl',label:'Photo URL'},
   ];
 
-  // Parse CSV text
   const parseCSV = text => {
     const lines = text.split(/\r?\n/).filter(l=>l.trim());
     if(lines.length < 2) return null;
-    // Detect delimiter
     const delim = lines[0].includes('\t') ? '\t' : ',';
     const parseRow = row => {
       const r=[]; let cur='', inQ=false;
@@ -620,7 +859,6 @@ const CsvUpload = ({years,grades,clubs,houses,onImport,showToast}) => {
     return {headers, rows};
   };
 
-  // Map CSV headers to student fields
   const HMAP2 = {
     'name':'name','full name':'name','student name':'name','fullname':'name',
     'index':'indexNo','index no':'indexNo','indexno':'indexNo','index number':'indexNo','student id':'indexNo','idx':'indexNo',
@@ -643,9 +881,7 @@ const CsvUpload = ({years,grades,clubs,houses,onImport,showToast}) => {
     Object.entries(row).forEach(([h,v])=>{
       const val = String(v||'').trim();
       if(!val) return;
-      // Exact match first
       if(HMAP2[h]){ s[HMAP2[h]]=val; return; }
-      // Partial match
       for(const [key,field] of Object.entries(HMAP2)){
         if(h.includes(key)||key.includes(h)){s[field]=val;break;}
       }
@@ -685,7 +921,6 @@ const CsvUpload = ({years,grades,clubs,houses,onImport,showToast}) => {
     setSaving(false); setProg(0);
   };
 
-  // Download template CSV
   const downloadTemplate = () => {
     const headers = CSV_FIELDS.map(f=>f.label).join(',');
     const sample  = 'STD/25/001,Ahmed Ali,A123456,2010-05-15,Male,Grade 7,Science Club,Blue House,ahmed@school.edu,+960 777 1234,Ahmed Senior,Male Atoll,2025,';
@@ -696,7 +931,6 @@ const CsvUpload = ({years,grades,clubs,houses,onImport,showToast}) => {
   };
 
   return <div style={{marginTop:'1rem',paddingTop:'1rem',borderTop:'1px solid #a7f3d0'}}>
-
     <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'.75rem',flexWrap:'wrap',gap:'.5rem'}}>
       <div>
         <div style={{fontWeight:900,color:'#0f172a',fontSize:'.875rem'}}>📂 CSV Upload & Restore</div>
@@ -706,8 +940,6 @@ const CsvUpload = ({years,grades,clubs,houses,onImport,showToast}) => {
         <Ic.Download s={12}/>Template
       </button>
     </div>
-
-    {/* Academic Year selector */}
     <div style={{marginBottom:'.625rem'}}>
       <label className="lbl">Academic Year for this upload</label>
       <select className="inp" value={selYear} onChange={e=>{setSelY(e.target.value);setPrev(null);}} style={{cursor:'pointer'}}>
@@ -715,8 +947,6 @@ const CsvUpload = ({years,grades,clubs,houses,onImport,showToast}) => {
         {years.map(y=><option key={y} value={y}>{y}</option>)}
       </select>
     </div>
-
-    {/* Drop zone */}
     {selYear && <div
       onDragOver={e=>{e.preventDefault();setDrag(true);}}
       onDragLeave={()=>setDrag(false)}
@@ -728,8 +958,6 @@ const CsvUpload = ({years,grades,clubs,houses,onImport,showToast}) => {
       <div style={{fontSize:'.68rem',color:'#64748b',marginTop:'.2rem'}}>Will import as <strong>{selYear}</strong> students</div>
       <input ref={fileRef} type="file" accept=".csv,.txt" className="hidden" onChange={e=>handleFile(e.target.files?.[0])}/>
     </div>}
-
-    {/* Preview */}
     {preview && <div style={{background:'white',border:'1px solid #e2e8f0',borderRadius:'1rem',padding:'1rem',marginBottom:'.625rem'}}>
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'.75rem',flexWrap:'wrap',gap:'.5rem'}}>
         <div>
@@ -738,7 +966,6 @@ const CsvUpload = ({years,grades,clubs,houses,onImport,showToast}) => {
         </div>
         <button onClick={()=>setPrev(null)} style={{background:'#fef2f2',color:'#dc2626',border:'none',borderRadius:'.5rem',padding:'.3rem .625rem',fontWeight:800,fontSize:'.72rem',cursor:'pointer'}}>Clear</button>
       </div>
-      {/* Sample rows */}
       <div style={{overflowX:'auto',marginBottom:'.75rem'}}>
         <table style={{width:'100%',borderCollapse:'collapse',fontSize:'.72rem',minWidth:'700px'}}>
           <thead><tr style={{background:'#f1f5f9'}}>
@@ -760,25 +987,6 @@ const CsvUpload = ({years,grades,clubs,houses,onImport,showToast}) => {
           </tbody>
         </table>
       </div>
-      {/* Field mapping summary */}
-      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))',gap:'.35rem',marginBottom:'.75rem'}}>
-        {[
-          ['Index No', preview.rows.filter(s=>s.indexNo).length],
-          ['Name',     preview.rows.filter(s=>s.name).length],
-          ['National ID',preview.rows.filter(s=>s.idNo).length],
-          ['Grade',    preview.rows.filter(s=>s.grade).length],
-          ['Club',     preview.rows.filter(s=>s.club).length],
-          ['House',    preview.rows.filter(s=>s.house).length],
-          ['Phone',    preview.rows.filter(s=>s.phone).length],
-          ['Email',    preview.rows.filter(s=>s.email).length],
-          ['DOB',      preview.rows.filter(s=>s.dob).length],
-          ['Parent',   preview.rows.filter(s=>s.parentName).length],
-          ['Address',  preview.rows.filter(s=>s.address).length],
-        ].map(([l,v])=><div key={l} style={{background:v>0?'#ecfdf5':'#f8fafc',border:`1px solid ${v>0?'#a7f3d0':'#e2e8f0'}`,borderRadius:'.5rem',padding:'.3rem .625rem',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-          <span style={{fontSize:'.62rem',fontWeight:700,color:'#64748b'}}>{l}</span>
-          <span style={{fontSize:'.72rem',fontWeight:900,color:v>0?'#047857':'#94a3b8'}}>{v}</span>
-        </div>)}
-      </div>
       {saving&&<div style={{height:'6px',background:'#e2e8f0',borderRadius:'999px',overflow:'hidden',marginBottom:'.5rem'}}><div style={{height:'100%',background:'#4f46e5',borderRadius:'999px',width:progress+'%',transition:'width .3s'}}/></div>}
       <button onClick={doImport} disabled={saving||!preview.rows.length}
         className="btn btn-indigo w-full" style={{justifyContent:'center',padding:'.75rem',fontSize:'.78rem',textTransform:'uppercase',opacity:saving?0.7:1}}>
@@ -788,19 +996,7 @@ const CsvUpload = ({years,grades,clubs,houses,onImport,showToast}) => {
   </div>;
 };
 
-// ── CSV Export helper ────────────────────────────────────
-const exportStudentsCSV = (students, filename) => {
-  const headers = ['Index Number','Full Name','National ID','Date of Birth','Gender','Grade / Class','Club','House','Email','Phone','Parent / Guardian','Address','Academic Year','Photo URL'];
-  const escape  = v => { const s=String(v||''); return s.includes(',')||s.includes('"')||s.includes('\n') ? '"'+s.replace(/"/g,'""')+'"' : s; };
-  const rows    = students.map(s=>[s.indexNo,s.name,s.idNo,s.dob,s.gender,s.grade,s.club,s.house,s.email,s.phone,s.parentName,s.address,s.academicYear,s.photoUrl].map(escape).join(','));
-  const csv     = [headers.join(','), ...rows].join('\n');
-  const blob    = new Blob([csv],{type:'text/csv;charset=utf-8;'});
-  const url     = URL.createObjectURL(blob);
-  const a       = document.createElement('a'); a.href=url; a.download=filename; a.click();
-  URL.revokeObjectURL(url);
-};
-
-// ── Sheets Sync (CSV only — no Google Sheets) ───────────
+// ── Sheets Sync ──────────────────────────────────────────
 const SheetsSync = ({students,isSyncing,lastSync,syncResult,onSync,onImport,years,grades,clubs,houses,showToast}) => {
   const [exportYear,setEY] = React.useState('all');
 
@@ -838,8 +1034,6 @@ const SheetsSync = ({students,isSyncing,lastSync,syncResult,onSync,onImport,year
         <div style={{fontSize:'.66rem',color:'#64748b'}}>{students?.length||0} students in Firebase</div>
       </div>
     </div>
-
-    {/* CSV Export */}
     <div style={{marginBottom:'1rem'}}>
       <div style={{fontWeight:800,color:'#0f172a',fontSize:'.82rem',marginBottom:'.5rem'}}>📥 Export Students to CSV</div>
       <div style={{fontSize:'.65rem',color:'#64748b',marginBottom:'.625rem'}}>
@@ -847,8 +1041,8 @@ const SheetsSync = ({students,isSyncing,lastSync,syncResult,onSync,onImport,year
       </div>
       <div style={{display:'flex',gap:'.35rem',flexWrap:'wrap',marginBottom:'.625rem'}}>
         {[
-          {v:'all',      l:`All Years (${students?.length||0})`},
-          {v:'separate', l:'Separate Files'},
+          {v:'all',l:`All Years (${students?.length||0})`},
+          {v:'separate',l:'Separate Files'},
           ...Object.entries(yearCounts).map(([y,c])=>({v:y,l:`${y} (${c})`}))
         ].map(opt=>(
           <button key={opt.v} onClick={()=>setEY(opt.v)}
@@ -865,12 +1059,9 @@ const SheetsSync = ({students,isSyncing,lastSync,syncResult,onSync,onImport,year
          `Download ${yearCounts[exportYear]||0} Students (${exportYear})`}
       </button>
     </div>
-
-    {/* CSV Upload */}
     {onImport&&<CsvUpload years={years} grades={grades||[]} clubs={clubs||[]} houses={houses||[]} onImport={onImport} showToast={showToast}/>}
   </div>;
 };
-
 
 // ── Admin Statistics Panel ───────────────────────────────
 const AdminStats = ({students, selYear, showToast}) => {
@@ -901,18 +1092,14 @@ const AdminStats = ({students, selYear, showToast}) => {
         </button>
       </div>
     </div>
-
-    {/* Stats display */}
     <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'.75rem',marginBottom:editSt?'.875rem':'0'}}>
-      {[['Total Students',disp.total,'#4f46e5','sst-i'],['Boys Enrolled',disp.boys,'#2563eb','sst-b'],['Girls Enrolled',disp.girls,'#be123c','sst-r']].map(([l,v,c,cls])=>(
-        <div key={l} className={`sst ${cls}`}>
+      {[['Total Students',disp.total,'sst-i'],['Boys Enrolled',disp.boys,'sst-b'],['Girls Enrolled',disp.girls,'sst-r']].map(([l,v,c])=>(
+        <div key={l} className={`sst ${c}`}>
           <span className="sst-lbl">{l}</span>
           <span className="sst-val">{v}</span>
         </div>
       ))}
     </div>
-
-    {/* Edit form */}
     {editSt && <div style={{borderTop:'1px solid #f1f5f9',paddingTop:'.875rem'}}>
       <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'.75rem',marginBottom:'.75rem'}}>
         {[['Total','total'],['Boys','boys'],['Girls','girls']].map(([l,k])=>(
@@ -927,8 +1114,7 @@ const AdminStats = ({students, selYear, showToast}) => {
         setCS(stTmp);
         try{
           await fetch('https://studentstat-968de-default-rtdb.firebaseio.com/custom_stats.json',{
-            method:'PUT',
-            headers:{'Content-Type':'application/json'},
+            method:'PUT',headers:{'Content-Type':'application/json'},
             body:JSON.stringify({...stTmp,active:true,updatedAt:new Date().toISOString()})
           });
           showToast('Stats saved — Student Statistics display updated','success');
@@ -952,7 +1138,7 @@ const AdminView = ({students,selYear,grades,clubs,houses,years,onAdd,onUpdate,on
   const [conf,setConf]     = React.useState(null);
   const [yearN,setYearN]   = React.useState('');
   const [editYear,setEY]   = React.useState(null);
-  const [creating,setCreating] = React.useState(null); // 'classes'|'clubs'|'houses'
+  const [creating,setCreating] = React.useState(null);
   const fileRef = React.useRef();
 
   const filtered = React.useMemo(()=>{
@@ -961,8 +1147,25 @@ const AdminView = ({students,selYear,grades,clubs,houses,years,onAdd,onUpdate,on
     return base;
   },[students,selYear,search]);
 
+  // Normalize any date string to YYYY-MM-DD for HTML date input
+  const normDate = v => {
+    if(!v) return '';
+    const s = String(v).trim();
+    // Already YYYY-MM-DD
+    if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+    // DD/MM/YYYY or DD-MM-YYYY
+    const dmy = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+    if(dmy) return `${dmy[3]}-${dmy[2].padStart(2,'0')}-${dmy[1].padStart(2,'0')}`;
+    // MM/DD/YYYY
+    const mdy = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if(mdy) return `${mdy[3]}-${mdy[1].padStart(2,'0')}-${mdy[2].padStart(2,'0')}`;
+    // Try JS Date parse as fallback
+    try { const d=new Date(s); if(!isNaN(d)) return d.toISOString().split('T')[0]; } catch(e){}
+    return s;
+  };
+
   const openAdd  = ()=>{setEditing(null);setForm({gender:'Male',academicYear:selYear});setModal(true);};
-  const openEdit = s=>{setEditing(s);setForm({...s});setModal(true);};
+  const openEdit = s=>{setEditing(s);setForm({...s, dob: normDate(s.dob)});setModal(true);};
 
   const submitStu = e=>{
     e.preventDefault();
@@ -995,11 +1198,9 @@ const AdminView = ({students,selYear,grades,clubs,houses,years,onAdd,onUpdate,on
       msg={conf.type==='bulk'?`Delete ${conf.ids.length} students?`:`Remove "${conf.name}"? Cannot be undone.`}
       onConfirm={doDelete} onCancel={()=>setConf(null)}/>}
 
-    {/* Category creation modal */}
     {creating&&<CatModal type={creating} item={null} fbNode={creating==='classes'?'grades':creating==='clubs'?'clubs':'houses'}
       onClose={()=>setCreating(null)} showToast={showToast}/>}
 
-    {/* Header */}
     <div className="card-xl" style={{padding:'1.25rem',marginBottom:'1rem'}}>
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:'.75rem',marginBottom:'1rem'}}>
         <div>
@@ -1014,10 +1215,8 @@ const AdminView = ({students,selYear,grades,clubs,houses,years,onAdd,onUpdate,on
       <SheetsSync students={students} isSyncing={isSyncing} lastSync={lastSync} syncResult={syncResult} onSync={onSync} onImport={onCsvImport} years={years} grades={grades} clubs={clubs} houses={houses} showToast={showToast}/>
     </div>
 
-    {/* Statistics Panel */}
     <AdminStats students={students} selYear={selYear} showToast={showToast}/>
 
-    {/* Tabs */}
     <div className="tab-bar" style={{marginBottom:'1rem'}}>
       {[['students','Students'],['classes','Classes'],['clubs','Clubs'],['houses','Houses'],['years','Years']].map(([id,l])=>(
         <button key={id} className={`tab-btn${tab===id?(id==='students'?' tab-indigo':' tab-emerald'):''}`}
@@ -1043,6 +1242,12 @@ const AdminView = ({students,selYear,grades,clubs,houses,years,onAdd,onUpdate,on
                 style={{background:'#fef2f2',color:'#dc2626',border:'1px solid #fecaca',borderRadius:'.5rem',padding:'.3rem .75rem',fontWeight:800,fontSize:'.72rem',cursor:'pointer',display:'flex',alignItems:'center',gap:'.3rem'}}>
                 <Ic.Trash s={12}/>Delete {sel.length}
               </button>}
+              {/* Quick per-class CSV download button in students tab */}
+              {filtered.length>0&&<button
+                onClick={()=>{exportStudentsCSV(filtered,`students_${selYear}_${new Date().toISOString().split('T')[0]}.csv`);showToast(`Downloaded ${filtered.length} shown students`,'success');}}
+                style={{background:'#ecfdf5',color:'#047857',border:'1px solid #a7f3d0',borderRadius:'.5rem',padding:'.3rem .75rem',fontWeight:800,fontSize:'.72rem',cursor:'pointer',display:'flex',alignItems:'center',gap:'.3rem'}}>
+                <Ic.Download s={12}/>CSV ({filtered.length})
+              </button>}
               <span style={{fontSize:'.72rem',fontWeight:700,color:'#94a3b8'}}>{filtered.length} students</span>
             </div>
           </div>
@@ -1055,6 +1260,8 @@ const AdminView = ({students,selYear,grades,clubs,houses,years,onAdd,onUpdate,on
             <th style={{color:'#64748b'}}>Student</th>
             <th style={{color:'#64748b'}}>Index No</th>
             <th style={{color:'#64748b'}}>Grade</th>
+            <th style={{color:'#64748b'}}>Club</th>
+            <th style={{color:'#64748b'}}>House</th>
             <th style={{color:'#64748b'}}>Sex</th>
             <th style={{color:'#64748b',textAlign:'right',minWidth:'90px'}}>Actions</th>
           </tr></thead>
@@ -1070,7 +1277,9 @@ const AdminView = ({students,selYear,grades,clubs,houses,years,onAdd,onUpdate,on
                   <span style={{fontWeight:800,color:'#0f172a'}}>{s.name}</span>
                 </div></td>
                 <td style={{fontFamily:'monospace',fontWeight:700,color:'#4f46e5',fontSize:'.82rem'}}>{s.indexNo}</td>
-                <td style={{color:'#475569',fontSize:'.82rem'}}>{s.grade||'—'}</td>
+                <td>{s.grade?<span className="badge badge-emerald">{s.grade}</span>:<span style={{color:'#cbd5e1',fontSize:'.78rem'}}>—</span>}</td>
+                <td>{s.club?<span className="badge badge-purple">{s.club}</span>:<span style={{color:'#cbd5e1',fontSize:'.78rem'}}>—</span>}</td>
+                <td>{s.house?<span className="badge badge-red">{s.house}</span>:<span style={{color:'#cbd5e1',fontSize:'.78rem'}}>—</span>}</td>
                 <td><span className={`badge ${s.gender==='Male'?'badge-blue':'badge-pink'}`}>{s.gender}</span></td>
                 <td style={{textAlign:'right'}}>
                   <div style={{display:'inline-flex',gap:'.3rem'}}>
@@ -1079,7 +1288,7 @@ const AdminView = ({students,selYear,grades,clubs,houses,years,onAdd,onUpdate,on
                   </div>
                 </td>
               </tr>
-            )) : <tr><td colSpan={6} style={{textAlign:'center',padding:'2.5rem',color:'#cbd5e1',fontWeight:800,textTransform:'uppercase',fontSize:'.72rem'}}>
+            )) : <tr><td colSpan={8} style={{textAlign:'center',padding:'2.5rem',color:'#cbd5e1',fontWeight:800,textTransform:'uppercase',fontSize:'.72rem'}}>
               {search?'No students match':'No students enrolled for '+selYear}
             </td></tr>}
           </tbody>
@@ -1117,7 +1326,6 @@ const AdminView = ({students,selYear,grades,clubs,houses,years,onAdd,onUpdate,on
       </div>
 
     </> : <>
-      {/* Classes / Clubs / Houses */}
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'1rem',flexWrap:'wrap',gap:'.5rem'}}>
         <div>
           <div style={{fontWeight:900,fontSize:'1rem',color:'#0f172a'}}>
@@ -1131,7 +1339,6 @@ const AdminView = ({students,selYear,grades,clubs,houses,years,onAdd,onUpdate,on
           <Ic.Plus s={14}/>Create {tab==='classes'?'Class':tab==='clubs'?'Club':'House'}
         </button>
       </div>
-
       {catList.length===0
         ? <div className="card-xl"><div className="empty">
             <div className="empty-icon"><Ic.Plus s={26}/></div>
@@ -1146,7 +1353,6 @@ const AdminView = ({students,selYear,grades,clubs,houses,years,onAdd,onUpdate,on
       }
     </>}
 
-    {/* Student modal */}
     {modal&&<div className="modal-bg">
       <div className="modal-box" style={{overflowY:'auto',maxHeight:'90vh'}}>
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'1.25rem'}}>
@@ -1212,21 +1418,18 @@ const AdminView = ({students,selYear,grades,clubs,houses,years,onAdd,onUpdate,on
 const SuperView = ({logs,onSetAdminPass,onSetSuperPass,onWipe,onWipeYear,onRestore,students,grades,clubs,houses,years,selYear,showToast}) => {
   const [newAP,setNAP]      = React.useState('');
   const [newSP,setNSP]      = React.useState('');
-  const [wipeMode,setWM]    = React.useState(null); // null | 'all' | 'year'
+  const [wipeMode,setWM]    = React.useState(null);
   const [wipeYear,setWY]    = React.useState('');
   const [wiping,setWiping]  = React.useState(false);
   const [restoreD,setRD]    = React.useState(null);
   const [delS,setDelS]      = React.useState(null);
   const fileRef = React.useRef();
 
-  // Dynamic year counts from actual student data
   const yearCounts = React.useMemo(()=>{
     const c={};
     students.forEach(s=>{ const y=s.academicYear||'unknown'; c[y]=(c[y]||0)+1; });
     return c;
   },[students]);
-
-
 
   const exportBk = ()=>{
     const b=new Blob([JSON.stringify({students,grades,clubs,houses,years},null,2)],{type:'application/json'});
@@ -1242,21 +1445,14 @@ const SuperView = ({logs,onSetAdminPass,onSetSuperPass,onWipe,onWipeYear,onResto
   const doWipe = async ()=>{
     setWiping(true);
     try{
-      if(wipeMode==='all'){
-        await onWipe();
-        showToast('All data wiped','success');
-      } else {
-        await onWipeYear(wipeYear);
-        showToast(`${wipeYear} data deleted (${yearCounts[wipeYear]||0} students)`,'success');
-      }
+      if(wipeMode==='all'){await onWipe();showToast('All data wiped','success');}
+      else {await onWipeYear(wipeYear);showToast(`${wipeYear} data deleted (${yearCounts[wipeYear]||0} students)`,'success');}
       setWM(null); setWY('');
     }catch(e){showToast('Wipe failed: '+e.message,'error');}
     setWiping(false);
   };
 
   return <div className="super-bg">
-
-    {/* ── Wipe confirm modal — simple 2-button ── */}
     {wipeMode&&<div className="wipe-bg">
       <div className="wipe-box" style={{maxWidth:'400px'}}>
         <div style={{textAlign:'center',marginBottom:'1.5rem'}}>
@@ -1310,7 +1506,6 @@ const SuperView = ({logs,onSetAdminPass,onSetSuperPass,onWipe,onWipeYear,onResto
 
     <input type="file" ref={fileRef} className="hidden" accept=".json" onChange={importBk}/>
 
-    {/* Header */}
     <div className="super-card" style={{padding:'1.25rem',marginBottom:'1rem',display:'flex',alignItems:'center',gap:'.875rem',flexWrap:'wrap'}}>
       <div style={{width:'3rem',height:'3rem',background:'linear-gradient(135deg,#6366f1,#4f46e5)',borderRadius:'.875rem',display:'flex',alignItems:'center',justifyContent:'center',color:'white'}}><Ic.Lock s={22}/></div>
       <div>
@@ -1322,20 +1517,17 @@ const SuperView = ({logs,onSetAdminPass,onSetSuperPass,onWipe,onWipeYear,onResto
       </div>
     </div>
 
-    {/* ── Delete by Academic Year ── */}
     <div style={{background:'rgba(220,38,38,.08)',border:'1px solid rgba(220,38,38,.2)',borderRadius:'1.25rem',padding:'1.25rem',marginBottom:'1rem'}}>
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:'.625rem',marginBottom:'1rem'}}>
         <div>
           <div style={{color:'#f87171',fontWeight:900,fontSize:'.9rem'}}>🗑 Delete Student Data</div>
           <div style={{color:'rgba(248,113,113,.6)',fontSize:'.72rem'}}>{students.length} total students across {Object.keys(yearCounts).length} year{Object.keys(yearCounts).length!==1?'s':''}</div>
         </div>
-        <button onClick={()=>{setWM('all');setWT('');}}
+        <button onClick={()=>setWM('all')}
           style={{background:'linear-gradient(135deg,#dc2626,#991b1b)',color:'white',border:'none',borderRadius:'.75rem',padding:'.6rem 1.1rem',fontSize:'.72rem',fontWeight:800,textTransform:'uppercase',letterSpacing:'.06em',cursor:'pointer',display:'flex',alignItems:'center',gap:'.4rem'}}>
           <Ic.Trash s={13}/>Wipe All Data
         </button>
       </div>
-
-      {/* Dynamic year cards */}
       {Object.keys(yearCounts).length===0
         ? <div style={{textAlign:'center',padding:'1.25rem',color:'rgba(255,255,255,.25)',fontSize:'.72rem',fontWeight:800,textTransform:'uppercase'}}>No students in database</div>
         : <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(180px,1fr))',gap:'.625rem',marginBottom:'1rem'}}>
@@ -1345,18 +1537,14 @@ const SuperView = ({logs,onSetAdminPass,onSetSuperPass,onWipe,onWipeYear,onResto
                   <div style={{color:'white',fontWeight:900,fontSize:'.9rem'}}>{year}</div>
                   <span style={{background:'rgba(220,38,38,.2)',color:'#f87171',fontSize:'.62rem',fontWeight:800,padding:'.15rem .5rem',borderRadius:'999px',border:'1px solid rgba(220,38,38,.3)'}}>{count} students</span>
                 </div>
-                <div style={{display:'flex',gap:'.4rem'}}>
-                  <button onClick={()=>{setWM('year');setWY(year);setWT('');}}
-                    style={{flex:1,background:'rgba(220,38,38,.15)',color:'#f87171',border:'1px solid rgba(220,38,38,.25)',borderRadius:'.5rem',padding:'.4rem .5rem',fontSize:'.65rem',fontWeight:800,cursor:'pointer',textTransform:'uppercase',display:'flex',alignItems:'center',justifyContent:'center',gap:'.25rem'}}>
-                    <Ic.Trash s={11}/>Delete {year}
-                  </button>
-                </div>
+                <button onClick={()=>{setWM('year');setWY(year);}}
+                  style={{flex:1,background:'rgba(220,38,38,.15)',color:'#f87171',border:'1px solid rgba(220,38,38,.25)',borderRadius:'.5rem',padding:'.4rem .5rem',fontSize:'.65rem',fontWeight:800,cursor:'pointer',textTransform:'uppercase',display:'flex',alignItems:'center',justifyContent:'center',gap:'.25rem'}}>
+                  <Ic.Trash s={11}/>Delete {year}
+                </button>
               </div>
             ))}
           </div>
       }
-
-      {/* Individual student list for selected year */}
       {Object.entries(yearCounts).sort().map(([year,count])=>{
         const yrStudents = students.filter(s=>String(s.academicYear)===String(year));
         return <details key={year} style={{marginBottom:'.4rem'}}>
@@ -1533,7 +1721,11 @@ const App = () => {
   const [passIn,  setPassIn]   = React.useState('');
   const [toast,   setToast]    = React.useState(null);
   const [drawer,  setDrawer]   = React.useState(false);
-  const [selYear, setSelYear]  = React.useState(INIT_YEARS[0]);
+
+  // ── AUTO-SELECT CURRENT YEAR ──────────────────────────
+  // Initialize with current real-world year
+  const [selYear, setSelYear]  = React.useState(() => getCurrentYear(INIT_YEARS));
+
   const [logoClicks,setLC]     = React.useState(0);
   const [showNav, setShowNav]  = React.useState(false);
   const [isSyncing,setSyncing] = React.useState(false);
@@ -1547,7 +1739,19 @@ const App = () => {
     refs.grades.on('value',s=>{const d=s.val();setGrades(d?Object.keys(d).map(k=>({id:k,...d[k],teachers:d[k].teachers||{}})):[]);});
     refs.clubs.on('value',s=>{const d=s.val();setClubs(d?Object.keys(d).map(k=>({id:k,...d[k],teachers:d[k].teachers||{}})):[]);});
     refs.houses.on('value',s=>{const d=s.val();setHouses(d?Object.keys(d).map(k=>({id:k,...d[k],teachers:d[k].teachers||{}})):[]);});
-    refs.years.on('value',s=>{const d=s.val();if(d){const y=Object.values(d);setYears(y);setSelYear(p=>y.includes(p)?p:y[0]);}});
+    refs.years.on('value',s=>{
+      const d=s.val();
+      if(d){
+        const y=Object.values(d);
+        setYears(y);
+        // When Firebase years load, auto-select the best current year
+        setSelYear(p => {
+          const best = getCurrentYear(y);
+          // Only override if current selection isn't in the new list
+          return y.includes(p) ? p : best;
+        });
+      }
+    });
     return()=>Object.values(refs).forEach(r=>r.off('value'));
   },[]);
 
@@ -1586,7 +1790,6 @@ const App = () => {
     const node=type==='classes'?'grades':type==='clubs'?'clubs':type==='houses'?'houses':'academicYears';
     if(type==='years'){await setYearsF(years.filter(y=>y!==id));}
     else {
-      // Find Firebase key for this category by name
       const list=type==='classes'?grades:type==='clubs'?clubs:houses;
       const item=list.find(x=>x.name===id);
       if(item?.id) await fbDEL(node+'/'+item.id);
@@ -1603,7 +1806,6 @@ const App = () => {
     }catch(e){throw e;}
   };
 
-  // Delete all students for a specific academic year only
   const wipeYear = async (year) => {
     try{
       const toDelete = students.filter(s=>String(s.academicYear)===String(year));
@@ -1648,20 +1850,15 @@ const App = () => {
     setSyncing(false);
   };
 
-  // CSV import — saves ALL students + auto-creates new classes/clubs/houses
   const csvImport = async (rows, year, onProgress) => {
-
-    // ── Step 1: Extract unique names from CSV ──
     const csvGrades = [...new Set(rows.map(r=>r.grade).filter(Boolean))];
     const csvClubs  = [...new Set(rows.map(r=>r.club).filter(Boolean))];
     const csvHouses = [...new Set(rows.map(r=>r.house).filter(Boolean))];
 
-    // ── Step 2: Get existing names from Firebase (avoid duplicates) ──
     const existingGradeNames = grades.map(g=>g.name.toLowerCase().trim());
     const existingClubNames  = clubs.map(c=>c.name.toLowerCase().trim());
     const existingHouseNames = houses.map(h=>h.name.toLowerCase().trim());
 
-    // ── Step 3: Save only NEW names (not already in Firebase) ──
     const newGrades = csvGrades.filter(n=>!existingGradeNames.includes(n.toLowerCase().trim()));
     const newClubs  = csvClubs.filter(n=>!existingClubNames.includes(n.toLowerCase().trim()));
     const newHouses = csvHouses.filter(n=>!existingHouseNames.includes(n.toLowerCase().trim()));
@@ -1674,7 +1871,6 @@ const App = () => {
       addLog(`Auto-created: ${newGrades.length} classes, ${newClubs.length} clubs, ${newHouses.length} houses`);
     }
 
-    // ── Step 4: Save all students ──
     let done = 0;
     for(const s of rows) {
       const student = {...s, academicYear: year};
@@ -1708,7 +1904,7 @@ const App = () => {
         <button onClick={handleLogoClick} style={{width:'2.25rem',height:'2.25rem',background:'#4f46e5',borderRadius:'.55rem',border:'none',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontWeight:900,fontSize:'.9rem'}}>F</button>
         <div>
           <div style={{fontWeight:900,fontSize:'1rem',color:'#0f172a',lineHeight:1}}>Student Information System</div>
-          <div style={{fontSize:'.62rem',fontWeight:800,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'.12em'}}>{view} portal</div>
+          <div style={{fontSize:'.62rem',fontWeight:800,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'.12em'}}>{view} portal · {selYear}</div>
         </div>
       </div>
       {showNav&&<div style={{display:'flex',gap:'.3rem'}}>
@@ -1723,7 +1919,7 @@ const App = () => {
     <div className="main-grid">
       <Sidebar selYear={selYear} setSelYear={setSelYear} years={years} stats={stats}/>
       <div>
-        {view==='public'&&<PublicView students={students} grades={grades} clubs={clubs} houses={houses} years={years} selYear={selYear} setSelYear={setSelYear}/>}
+        {view==='public'&&<PublicView students={students} grades={grades} clubs={clubs} houses={houses} years={years} selYear={selYear} setSelYear={setSelYear} showToast={showToast}/>}
         {view==='admin'&&(!isAdmin
           ? <LoginBox title="Staff Authorization" value={passIn} setValue={setPassIn} onSubmit={loginAdmin} icon={<Ic.Shield s={22}/>}/>
           : <AdminView students={students} selYear={selYear} grades={grades} clubs={clubs} houses={houses} years={years}

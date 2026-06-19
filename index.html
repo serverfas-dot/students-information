@@ -9,6 +9,26 @@
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database-compat.js"></script>
+<script>
+window.FAS_DB_URL = 'https://student-management-syste-b952d-default-rtdb.firebaseio.com';
+const firebaseConfig = {
+  apiKey: "AIzaSyDuoYfArP0-ifxYZ_UKgM7_oAf0dzolANs",
+  authDomain: "student-management-syste-b952d.firebaseapp.com",
+  databaseURL: window.FAS_DB_URL,
+  projectId: "student-management-syste-b952d",
+  storageBucket: "student-management-syste-b952d.firebasestorage.app",
+  messagingSenderId: "116847902508",
+  appId: "1:116847902508:web:55c6e02f9c775573357689",
+  measurementId: "G-XJLYYQK9VZ"
+};
+try {
+  firebase.initializeApp(firebaseConfig);
+  window._fasDb = firebase.database();
+} catch (err) {
+  console.error('Firebase init failed', err);
+  window._fasDb = null;
+}
+</script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
@@ -144,9 +164,10 @@ tr:hover td{background:#f8fafc}
 </head>
 <body>
 <div id="root"></div>
-<script type="text/babel">
+<script type="text/babel" data-presets="env" data-plugins="transform-react-jsx">
 
-const FB_URL = 'https://student-management-syste-b952d-default-rtdb.firebaseio.com';
+/** @jsxRuntime classic */
+const FB_URL = window.FAS_DB_URL || 'https://student-management-syste-b952d-default-rtdb.firebaseio.com';
 const GS_KEY = 'AIzaSyBDaPGla2HilWnBJLcd3zA8WbEARv1bc6g';
 const DEFAULT_SHEET = 'https://docs.google.com/spreadsheets/d/1jRiotMJ-zOwxrfYrpaofzXxmgFdQmT_piVYcgLYqKr0/edit?usp=sharing';
 const INIT_YEARS = ['2025','2026','2027','2028'];
@@ -162,6 +183,7 @@ const getCurrentYear = (years) => {
   return sorted[sorted.length - 1] || now;
 };
 
+const fbGET  = path => fetch(`${FB_URL}/${path}.json`).then(r=>r.ok?r.json():null);
 const fbDEL  = path => fetch(`${FB_URL}/${path}.json`,{method:'DELETE'});
 const fbPUT  = (path,d) => fetch(`${FB_URL}/${path}.json`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});
 const fbPOST = (path,d) => fetch(`${FB_URL}/${path}.json`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)}).then(r=>r.json()).then(r=>r.name);
@@ -1733,7 +1755,25 @@ const App = () => {
   const [syncResult,setSyncRes]= React.useState(null);
 
   React.useEffect(()=>{
-    const db=window._fasDb; if(!db) return;
+    let active = true;
+    const toList = d => d?Object.keys(d).map(k=>({id:k,...d[k]})):[];
+    const toTeacherList = d => d?Object.keys(d).map(k=>({id:k,...d[k],teachers:d[k].teachers||{}})):[];
+    const applyYears = d => {
+      if(!d) return;
+      const y = (Array.isArray(d)?d:Object.values(d)).filter(Boolean);
+      if(!y.length) return;
+      setYears(y);
+      setSelYear(p => y.includes(p) ? p : getCurrentYear(y));
+    };
+
+    Promise.all([fbGET('students'),fbGET('grades'),fbGET('clubs'),fbGET('houses'),fbGET('academicYears')])
+      .then(([s,g,c,h,y])=>{
+        if(!active) return;
+        setStudents(toList(s));setGrades(toTeacherList(g));setClubs(toTeacherList(c));setHouses(toTeacherList(h));applyYears(y);
+      })
+      .catch(e=>console.warn('Firebase REST load failed',e));
+
+    const db=window._fasDb; if(!db) return()=>{active=false;};
     const refs={students:db.ref('students'),grades:db.ref('grades'),clubs:db.ref('clubs'),houses:db.ref('houses'),years:db.ref('academicYears')};
     refs.students.on('value',s=>{const d=s.val();setStudents(d?Object.keys(d).map(k=>({id:k,...d[k]})):[]);});
     refs.grades.on('value',s=>{const d=s.val();setGrades(d?Object.keys(d).map(k=>({id:k,...d[k],teachers:d[k].teachers||{}})):[]);});
@@ -1752,7 +1792,7 @@ const App = () => {
         });
       }
     });
-    return()=>Object.values(refs).forEach(r=>r.off('value'));
+    return()=>{active=false;Object.values(refs).forEach(r=>r.off('value'));};
   },[]);
 
   React.useEffect(()=>{localStorage.setItem('fas_ap',adminPass);localStorage.setItem('fas_sp',superPass);},[adminPass,superPass]);
@@ -1943,20 +1983,6 @@ const App = () => {
 };
 
 ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
-</script>
-<script>
-const firebaseConfig = {
-  apiKey: "AIzaSyDuoYfArP0-ifxYZ_UKgM7_oAf0dzolANs",
-  authDomain: "student-management-syste-b952d.firebaseapp.com",
-  databaseURL: "https://student-management-syste-b952d-default-rtdb.firebaseio.com",
-  projectId: "student-management-syste-b952d",
-  storageBucket: "student-management-syste-b952d.firebasestorage.app",
-  messagingSenderId: "116847902508",
-  appId: "1:116847902508:web:55c6e02f9c775573357689",
-  measurementId: "G-XJLYYQK9VZ"
-};
-firebase.initializeApp(firebaseConfig);
-window._fasDb = firebase.database();
 </script>
 </body>
 </html>
